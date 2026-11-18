@@ -1,0 +1,83 @@
+<resources>
+    <string name="app_name">Campusly</string>
+    <string name="welcome_back">Welcome back, %1$s 👋</string>
+    <string name="good_morning">Good morning, %1$s 👋</string>
+    <string name="good_afternoon">Good afternoon, %1$s 👋</string>
+    <string name="good_evening">Good evening, %1$s 👋</string>
+
+    <!-- Navigation Tabs -->
+    <string name="nav_home">Home</string>
+    <string name="nav_planner">Planner</string>
+    <string name="nav_forum">Forum</string>
+    <string name="nav_study">Study</string>
+    <string name="nav_discover">Discover</string>
+    <string name="nav_profile">Profile</string>
+
+    <!-- Auth & Signup -->
+    <string name="create_account">Create Account</string>
+    <string name="sign_in">Sign In</string>
+    <string name="join_campusly">Join Campusly student community</string>
+    <string name="sign_in_dashboard">Sign in to your student dashboard</string>
+    <string name="full_name">Full Name</string>
+    <string name="university_college">University / College</string>
+    <string name="course_program">Course / Major Program</string>
+    <string name="year_of_study">Year of Study</string>
+    <string name="student_email">Student Email</string>
+    <string name="password">Password</string>
+    <string name="google_sign_in">Continue with Google Sign-In</string>
+    <string name="already_have_account">Already have an account? Sign In</string>
+    <string name="dont_have_account">Don\'t have an account? Register</string>
+
+    <!-- Home Screen -->
+    <string name="next_class">NEXT CLASS</string>
+    <string name="no_more_classes">No more classes today 🎉</string>
+    <string name="quick_actions">Quick Actions</string>
+    <string name="upcoming_deadlines">Upcoming Deadlines</string>
+    <string name="no_assignments">You\'re all caught up 🎉 No pending assignments!</string>
+    <string name="next_exam">NEXT EXAM</string>
+    <string name="todays_smart_plan">TODAY\'S SMART PLAN</string>
+
+    <!-- Forum / Broadcast Messaging -->
+    <string name="campus_broadcast_forum">Campus Broadcast Forum</string>
+    <string name="broadcast_subtitle">Broadcast messages to all students in real-time</string>
+    <string name="post_broadcast">Post Broadcast</string>
+    <string name="broadcast_placeholder">Type a message to broadcast to everyone...</string>
+    <string name="category_general">General</string>
+    <string name="category_announcements">Announcements</string>
+    <string name="category_study_help">Study Help</string>
+    <string name="category_campus_life">Campus Life</string>
+    <string name="post_anonymously">Post Anonymously 🥷</string>
+    <string name="broadcast_now">Broadcast Now</string>
+
+    <!-- Planner Screen -->
+    <string name="academic_planner">Academic Planner</string>
+    <string name="tab_timetable">Timetable</string>
+    <string name="tab_assignments">Assignments</string>
+    <string name="tab_exams">Exams</string>
+    <string name="tab_tasks">Tasks</string>
+    <string name="add_course">+ Course</string>
+    <string name="add_assignment">+ Assignment</string>
+    <string name="add_exam">+ Exam</string>
+    <string name="add_task">+ Task</string>
+
+    <!-- Study Screen -->
+    <string name="study_tools">Study Tools</string>
+    <string name="ai_assistant">AI Assistant</string>
+    <string name="notes">Notes</string>
+    <string name="flashcards">Flashcards</string>
+    <string name="analytics">Analytics</string>
+    <string name="add_note">+ Note</string>
+
+    <!-- Profile & Settings -->
+    <string name="anonymous_mode">Anonymous Mode 🥷</string>
+    <string name="academic_performance">ACADEMIC PERFORMANCE</string>
+    <string name="attendance_tracker">ATTENDANCE TRACKER</string>
+    <string name="financial_budget">FINANCIAL BUDGET &amp; SAVINGS</string>
+    <string name="app_preferences">APP PREFERENCES &amp; SECURITY</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="delete_account">Delete Account &amp; Data</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+</resources>
