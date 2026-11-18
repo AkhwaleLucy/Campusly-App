@@ -6,7 +6,7 @@ import com.example.gossipapp.data.preferences.UserPreferences
 import kotlinx.coroutines.flow.Flow
 
 class CampuslyRepository(
-    private val dao: CampuslyDao,
+    val dao: CampuslyDao,
     private val preferences: UserPreferences
 ) {
 
@@ -22,6 +22,9 @@ class CampuslyRepository(
     val quietHoursStart: Flow<String> = preferences.quietHoursStart
     val quietHoursEnd: Flow<String> = preferences.quietHoursEnd
     val isAnonymousMode: Flow<Boolean> = preferences.isAnonymousMode
+
+    suspend fun getUserByEmail(email: String): UserEntity? = dao.getUserByEmail(email)
+    fun getUserByEmailFlow(email: String): Flow<UserEntity?> = dao.getUserByEmailFlow(email)
 
     suspend fun saveUser(user: UserEntity) = dao.insertUser(user)
     suspend fun clearUser() = dao.clearUser()
@@ -85,6 +88,9 @@ class CampuslyRepository(
     val allFlashcards: Flow<List<FlashcardEntity>> = dao.getAllFlashcards()
     fun getFlashcardsForUser(email: String): Flow<List<FlashcardEntity>> = dao.getFlashcardsForUser(email)
     suspend fun addFlashcard(flashcard: FlashcardEntity): Long = dao.insertFlashcard(flashcard)
+    suspend fun updateFlashcard(flashcard: FlashcardEntity) = dao.updateFlashcard(flashcard)
+    suspend fun deleteFlashcard(flashcard: FlashcardEntity) = dao.deleteFlashcard(flashcard)
+    suspend fun deleteFlashcardDeck(userEmail: String, deckName: String) = dao.deleteFlashcardDeck(userEmail, deckName)
 
     // GPA
     val allGpaRecords: Flow<List<GpaRecordEntity>> = dao.getAllGpaRecords()

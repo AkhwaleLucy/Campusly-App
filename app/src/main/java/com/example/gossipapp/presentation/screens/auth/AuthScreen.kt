@@ -18,18 +18,28 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.gossipapp.R
 
+enum class AuthMode {
+    SIGN_IN,
+    SIGN_UP,
+    RESET_PASSWORD
+}
+
 @Composable
 fun AuthScreen(
-    onSignUp: (fullName: String, email: String, university: String, courseProgram: String, yearOfStudy: String) -> Unit,
-    onSignIn: (email: String) -> Unit
+    onSignUp: (fullName: String, email: String, password: String, university: String, courseProgram: String, yearOfStudy: String, onError: (String) -> Unit) -> Unit,
+    onSignIn: (email: String, password: String, onError: (String) -> Unit) -> Unit,
+    onResetPassword: (email: String, newPassword: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
 ) {
-    var isRegister by remember { mutableStateOf(true) }
-    var email by remember { mutableStateOf("student@campusly.app") }
-    var password by remember { mutableStateOf("password123") }
-    var fullName by remember { mutableStateOf("Lucy Vance") }
+    var mode by remember { mutableStateOf(AuthMode.SIGN_IN) }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var fullName by remember { mutableStateOf("") }
     var university by remember { mutableStateOf("University of Science & Technology") }
     var courseProgram by remember { mutableStateOf("Computer Science") }
     var yearOfStudy by remember { mutableStateOf("Year 3") }
+
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var successMessage by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
@@ -53,23 +63,92 @@ fun AuthScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = if (isRegister) stringResource(R.string.create_account) else stringResource(R.string.sign_in),
+                text = when (mode) {
+                    AuthMode.SIGN_UP -> stringResource(R.string.create_account)
+                    AuthMode.SIGN_IN -> stringResource(R.string.sign_in)
+                    AuthMode.RESET_PASSWORD -> "Reset Password"
+                },
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
-                text = if (isRegister) stringResource(R.string.join_campusly) else stringResource(R.string.sign_in_dashboard),
+                text = when (mode) {
+                    AuthMode.SIGN_UP -> stringResource(R.string.join_campusly)
+                    AuthMode.SIGN_IN -> stringResource(R.string.sign_in_dashboard)
+                    AuthMode.RESET_PASSWORD -> "Enter your email and new password to reset your credentials."
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            if (isRegister) {
+            // Error Message Banner
+            if (errorMessage != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = errorMessage!!,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        if (errorMessage!!.contains("already exists", ignoreCase = true)) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        errorMessage = null
+                                        mode = AuthMode.SIGN_IN
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Sign In Now")
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        errorMessage = null
+                                        mode = AuthMode.RESET_PASSWORD
+                                    },
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Reset Password")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Success Message Banner
+            if (successMessage != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                ) {
+                    Text(
+                        text = successMessage!!,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+
+            if (mode == AuthMode.SIGN_UP) {
                 OutlinedTextField(
                     value = fullName,
-                    onValueChange = { fullName = it },
+                    onValueChange = { fullName = it; errorMessage = null },
                     label = { Text(stringResource(R.string.full_name)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -77,7 +156,7 @@ fun AuthScreen(
                 Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
                     value = university,
-                    onValueChange = { university = it },
+                    onValueChange = { university = it; errorMessage = null },
                     label = { Text(stringResource(R.string.university_college)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -85,7 +164,7 @@ fun AuthScreen(
                 Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
                     value = courseProgram,
-                    onValueChange = { courseProgram = it },
+                    onValueChange = { courseProgram = it; errorMessage = null },
                     label = { Text(stringResource(R.string.course_program)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -93,7 +172,7 @@ fun AuthScreen(
                 Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
                     value = yearOfStudy,
-                    onValueChange = { yearOfStudy = it },
+                    onValueChange = { yearOfStudy = it; errorMessage = null },
                     label = { Text(stringResource(R.string.year_of_study)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -103,7 +182,7 @@ fun AuthScreen(
 
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = { email = it; errorMessage = null; successMessage = null },
                 label = { Text(stringResource(R.string.student_email)) },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
@@ -114,8 +193,8 @@ fun AuthScreen(
 
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
-                label = { Text(stringResource(R.string.password)) },
+                onValueChange = { password = it; errorMessage = null; successMessage = null },
+                label = { Text(if (mode == AuthMode.RESET_PASSWORD) "New Password" else stringResource(R.string.password)) },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
@@ -126,13 +205,38 @@ fun AuthScreen(
 
             Button(
                 onClick = {
-                    if (isRegister) {
-                        if (fullName.isNotBlank() && email.isNotBlank()) {
-                            onSignUp(fullName, email, university, courseProgram, yearOfStudy)
+                    errorMessage = null
+                    successMessage = null
+                    when (mode) {
+                        AuthMode.SIGN_UP -> {
+                            if (fullName.isBlank() || email.isBlank() || password.isBlank()) {
+                                errorMessage = "Please fill in all required fields."
+                            } else {
+                                onSignUp(fullName, email, password, university, courseProgram, yearOfStudy) { err ->
+                                    errorMessage = err
+                                }
+                            }
                         }
-                    } else {
-                        if (email.isNotBlank()) {
-                            onSignIn(email)
+                        AuthMode.SIGN_IN -> {
+                            if (email.isBlank() || password.isBlank()) {
+                                errorMessage = "Please enter your email and password."
+                            } else {
+                                onSignIn(email, password) { err ->
+                                    errorMessage = err
+                                }
+                            }
+                        }
+                        AuthMode.RESET_PASSWORD -> {
+                            if (email.isBlank() || password.isBlank()) {
+                                errorMessage = "Please enter your email and new password."
+                            } else {
+                                onResetPassword(email, password, {
+                                    successMessage = "Password updated successfully! Please Sign In."
+                                    mode = AuthMode.SIGN_IN
+                                }, { err ->
+                                    errorMessage = err
+                                })
+                            }
                         }
                     }
                 },
@@ -142,34 +246,50 @@ fun AuthScreen(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = if (isRegister) stringResource(R.string.create_account) else stringResource(R.string.sign_in),
+                    text = when (mode) {
+                        AuthMode.SIGN_UP -> stringResource(R.string.create_account)
+                        AuthMode.SIGN_IN -> stringResource(R.string.sign_in)
+                        AuthMode.RESET_PASSWORD -> "Update Password"
+                    },
                     style = MaterialTheme.typography.titleMedium
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedButton(
-                onClick = {
-                    onSignUp(fullName, email, university, courseProgram, yearOfStudy)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(text = stringResource(R.string.google_sign_in))
-            }
-
             Spacer(modifier = Modifier.height(14.dp))
 
-            TextButton(
-                onClick = { isRegister = !isRegister }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (isRegister) stringResource(R.string.already_have_account) else stringResource(R.string.dont_have_account),
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                TextButton(
+                    onClick = {
+                        errorMessage = null
+                        successMessage = null
+                        mode = if (mode == AuthMode.SIGN_IN) AuthMode.SIGN_UP else AuthMode.SIGN_IN
+                    }
+                ) {
+                    Text(
+                        text = if (mode == AuthMode.SIGN_IN) stringResource(R.string.dont_have_account) else stringResource(R.string.already_have_account),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                if (mode == AuthMode.SIGN_IN) {
+                    TextButton(
+                        onClick = {
+                            errorMessage = null
+                            successMessage = null
+                            mode = AuthMode.RESET_PASSWORD
+                        }
+                    ) {
+                        Text(
+                            text = "Forgot Password?",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
             }
         }
     }

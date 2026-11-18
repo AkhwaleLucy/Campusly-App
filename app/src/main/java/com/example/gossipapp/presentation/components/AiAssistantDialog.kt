@@ -100,9 +100,9 @@ fun AiAssistantDialog(
                         FilterChip(
                             selected = false,
                             onClick = {
-                                onOpenFlashcardGenerator("AES Encryption", if (includeSelectedNote) selectedNoteToInclude else null, 5)
+                                onOpenFlashcardGenerator("Database Normalization", if (includeSelectedNote) selectedNoteToInclude else null, 7)
                             },
-                            label = { Text("Generate AES Flashcards 🎴") },
+                            label = { Text("Generate Flashcards 🎴") },
                             leadingIcon = { Icon(Icons.Default.Style, contentDescription = null, modifier = Modifier.size(16.dp)) }
                         )
                     }
@@ -177,15 +177,21 @@ fun AiAssistantDialog(
 
                                 val lower = userMsg.lowercase()
                                 if (lower.contains("flashcard") || lower.contains("flash cards")) {
-                                    val count = if (lower.contains("3")) 3 else 5
-                                    val topic = when {
-                                        lower.contains("aes") -> "AES Encryption"
-                                        lower.contains("dsa") || lower.contains("tree") -> "Data Structures"
-                                        lower.contains("network") -> "Computer Networks"
-                                        else -> userMsg.replace("make me", "", ignoreCase = true).replace("flashcards", "", ignoreCase = true).replace("about", "", ignoreCase = true).trim()
-                                    }
-                                    messages.add(AiChatMessage("AI", "Opening AI Flashcard Generator for topic '$topic' ($count cards)..."))
-                                    onOpenFlashcardGenerator(if (topic.isNotBlank()) topic else "General Study", if (includeSelectedNote) selectedNoteToInclude else null, count)
+                                    val countMatch = Regex("\\b(\\d+)\\b").find(userMsg)
+                                    val count = countMatch?.groupValues?.get(1)?.toIntOrNull() ?: 5
+                                    val topic = userMsg
+                                        .replace(Regex("(?i)make me \\d+ flashcards about"), "")
+                                        .replace(Regex("(?i)make me flashcards about"), "")
+                                        .replace(Regex("(?i)generate \\d+ flashcards about"), "")
+                                        .replace(Regex("(?i)generate flashcards about"), "")
+                                        .replace(Regex("(?i)make me \\d+ flashcards on"), "")
+                                        .replace(Regex("(?i)make me flashcards on"), "")
+                                        .replace(Regex("(?i)flashcards"), "")
+                                        .replace(Regex("(?i)flash cards"), "")
+                                        .trim()
+                                    val finalTopic = if (topic.isNotBlank()) topic.replaceFirstChar { it.uppercase() } else "Database Normalization"
+                                    messages.add(AiChatMessage("AI", "Opening AI Flashcard Generator for topic '$finalTopic' ($count cards)..."))
+                                    onOpenFlashcardGenerator(finalTopic, if (includeSelectedNote) selectedNoteToInclude else null, count)
                                 } else {
                                     val noteText = if (includeSelectedNote) selectedNoteToInclude?.content else null
                                     val response = onGenerateAiResponse(userMsg, noteText)

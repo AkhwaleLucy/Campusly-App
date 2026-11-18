@@ -3,6 +3,10 @@ package com.example.gossipapp.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.gossipapp.data.ai.CampuslyAiService
+import com.example.gossipapp.data.auth.AuthResult
+import com.example.gossipapp.data.auth.CampuslyAuthManager
+import com.example.gossipapp.data.auth.CampuslyBackendConfig
 import com.example.gossipapp.data.local.entity.*
 import com.example.gossipapp.data.repository.CampuslyRepository
 import com.example.gossipapp.presentation.components.FlashcardItemData
@@ -60,10 +64,23 @@ class CampuslyViewModel(
     private val repository: CampuslyRepository
 ) : ViewModel() {
 
+    private val authManager = CampuslyAuthManager(repository.dao)
+
     private val _searchQuery = MutableStateFlow("")
     private val _conflictMessage = MutableStateFlow<String?>(null)
     private val _selectedPostId = MutableStateFlow<Long?>(null)
     private val _selectedConversationId = MutableStateFlow<Long?>(null)
+
+    private val currentUserEmailFlow: Flow<String> = repository.currentUserEmailPref
+    private val userFlow: Flow<UserEntity?> = currentUserEmailFlow.flatMapLatest { email ->
+        if (email.isBlank()) flowOf(null) else repository.getUserByEmailFlow(email)
+    }
+    private val userFlashcardsFlow: Flow<List<FlashcardEntity>> = currentUserEmailFlow.flatMapLatest { email ->
+        if (email.isBlank()) flowOf(emptyList()) else repository.getFlashcardsForUser(email)
+    }
+    private val userConversationsFlow: Flow<List<PrivateConversationEntity>> = currentUserEmailFlow.flatMapLatest { email ->
+        if (email.isBlank()) flowOf(emptyList()) else repository.getConversationsForUser(email)
+    }
 
     private val forumRepliesFlow: Flow<List<ForumReplyEntity>> = _selectedPostId.flatMapLatest { postId ->
         if (postId != null) repository.getRepliesForPost(postId) else flowOf(emptyList())
@@ -75,7 +92,7 @@ class CampuslyViewModel(
 
     val uiState: StateFlow<CampuslyUiState> = combine(
         listOf(
-            repository.user,
+            userFlow,
             repository.isOnboarded,
             repository.isLoggedIn,
             repository.themeMode,
@@ -92,7 +109,7 @@ class CampuslyViewModel(
             repository.allTasks,
             repository.allNotes,
             repository.allStudySessions,
-            repository.allFlashcards,
+            userFlashcardsFlow,
             repository.allGpaRecords,
             repository.approvedEvents,
             repository.approvedOpportunities,
@@ -103,7 +120,7 @@ class CampuslyViewModel(
             repository.allMarketplaceListings,
             repository.allForumMessages,
             forumRepliesFlow,
-            repository.getConversationsForUser("student@campusly.app"),
+            userConversationsFlow,
             privateMessagesFlow,
             _searchQuery,
             _conflictMessage,
@@ -154,48 +171,71 @@ class CampuslyViewModel(
     )
 
     // Auth & Exclusive Trusted Admin Role
-    fun signUpUser(fullName: String, email: String, university: String, courseProgram: String, yearOfStudy: String) {
-        val isTrustedAdmin = email.trim().lowercase() == "admin@campusly.app"
+    fun signUpUser(
+        fullName: String,
+        email: String,
+        password: String,
+        university: String,
+        courseProgram: String,
+        yearOfStudy: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
         viewModelScope.launch {
-            val newUser = UserEntity(
-                id = "1",
-                email = email.trim(),
-                fullName = fullName.trim(),
-                university = university.trim(),
-                courseProgram = courseProgram.trim(),
-                yearOfStudy = yearOfStudy.trim(),
-                bio = "Student at $university",
-                isAdmin = isTrustedAdmin
-            )
-            repository.saveUser(newUser)
-            repository.setCurrentUserEmailPref(email.trim())
-            repository.setSelectedUniversity(university.trim())
-            repository.setLoggedIn(true)
-            repository.setOnboarded(true)
+            when (val result = authManager.signUp(fullName, email, password, university, courseProgram, yearOfStudy)) {
+                is AuthResult.Success -> {
+                    repository.setCurrentUserEmailPref(result.user.email)
+                    repository.setSelectedUniversity(result.user.university)
+                    repository.setLoggedIn(true)
+                    repository.setOnboarded(true)
+                    onSuccess()
+                }
+                is AuthResult.Error -> {
+                    onError(result.message)
+                }
+            }
         }
     }
 
-    fun signInUser(email: String) {
-        val cleanEmail = email.trim()
-        val isTrustedAdmin = cleanEmail.lowercase() == "admin@campusly.app"
+    fun signInUser(
+        email: String,
+        password: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
         viewModelScope.launch {
-            val existing = uiState.value.user
-            if (existing == null || existing.email != cleanEmail) {
-                val newUser = UserEntity(
-                    id = "1",
-                    email = cleanEmail,
-                    fullName = if (isTrustedAdmin) "Campus Admin" else "Lucy Vance",
-                    university = "University of Science & Technology",
-                    courseProgram = "Computer Science",
-                    yearOfStudy = "Year 3",
-                    bio = "Student at University",
-                    isAdmin = isTrustedAdmin
-                )
-                repository.saveUser(newUser)
+            when (val result = authManager.signIn(email, password)) {
+                is AuthResult.Success -> {
+                    repository.setCurrentUserEmailPref(result.user.email)
+                    repository.setSelectedUniversity(result.user.university)
+                    repository.setLoggedIn(true)
+                    repository.setOnboarded(true)
+                    onSuccess()
+                }
+                is AuthResult.Error -> {
+                    onError(result.message)
+                }
             }
-            repository.setCurrentUserEmailPref(cleanEmail)
-            repository.setLoggedIn(true)
-            repository.setOnboarded(true)
+        }
+    }
+
+    fun resetPassword(
+        email: String,
+        newPassword: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            when (val result = authManager.resetPassword(email, newPassword)) {
+                is AuthResult.Success -> {
+                    repository.setCurrentUserEmailPref(result.user.email)
+                    repository.setLoggedIn(true)
+                    onSuccess()
+                }
+                is AuthResult.Error -> {
+                    onError(result.message)
+                }
+            }
         }
     }
 
@@ -621,34 +661,39 @@ class CampuslyViewModel(
         }
     }
 
-    // Admin Review Verification
+    // Admin Review Verification with Backend Role Enforcement
+    private fun isCallerVerifiedAdmin(): Boolean {
+        val user = uiState.value.user ?: return false
+        return user.isAdmin && CampuslyBackendConfig.isVerifiedAdmin(user.id, user.email)
+    }
+
     fun adminApproveEvent(event: EventEntity) {
-        if (uiState.value.user?.isAdmin != true) return
+        if (!isCallerVerifiedAdmin()) return
         viewModelScope.launch { repository.updateEvent(event.copy(approvalStatus = "Approved")) }
     }
 
     fun adminRejectEvent(event: EventEntity) {
-        if (uiState.value.user?.isAdmin != true) return
+        if (!isCallerVerifiedAdmin()) return
         viewModelScope.launch { repository.updateEvent(event.copy(approvalStatus = "Rejected")) }
     }
 
     fun adminApproveOpportunity(opp: OpportunityEntity) {
-        if (uiState.value.user?.isAdmin != true) return
+        if (!isCallerVerifiedAdmin()) return
         viewModelScope.launch { repository.updateOpportunity(opp.copy(approvalStatus = "Approved")) }
     }
 
     fun adminRejectOpportunity(opp: OpportunityEntity) {
-        if (uiState.value.user?.isAdmin != true) return
+        if (!isCallerVerifiedAdmin()) return
         viewModelScope.launch { repository.updateOpportunity(opp.copy(approvalStatus = "Rejected")) }
     }
 
     fun adminApproveGroup(group: StudyGroupEntity) {
-        if (uiState.value.user?.isAdmin != true) return
+        if (!isCallerVerifiedAdmin()) return
         viewModelScope.launch { repository.updateStudyGroup(group.copy(approvalStatus = "Approved")) }
     }
 
     fun adminRejectGroup(group: StudyGroupEntity) {
-        if (uiState.value.user?.isAdmin != true) return
+        if (!isCallerVerifiedAdmin()) return
         viewModelScope.launch { repository.updateStudyGroup(group.copy(approvalStatus = "Rejected")) }
     }
 
@@ -664,7 +709,7 @@ class CampuslyViewModel(
 
     // Pomodoro & Analytics
     fun recordStudySession(courseName: String, topic: String, durationMinutes: Int, isBreak: Boolean = false) {
-        val userEmail = uiState.value.user?.email ?: "student@campusly.app"
+        val userEmail = uiState.value.user?.email ?: return
         viewModelScope.launch {
             repository.addStudySession(
                 StudySessionEntity(
@@ -688,60 +733,16 @@ class CampuslyViewModel(
     }
 
     // AI Flashcards Engine
-    fun generateAiFlashcards(
+    suspend fun generateAiFlashcards(
         rawTopic: String,
         selectedNote: NoteEntity?,
         requestedCount: Int = 5
     ): Pair<List<FlashcardItemData>, String?> {
-        val isNoteBased = selectedNote != null
-        val sourceText = if (isNoteBased) selectedNote!!.content else rawTopic.trim()
-        val topicName = if (isNoteBased) selectedNote!!.title else rawTopic.trim()
-
-        val cards = mutableListOf<FlashcardItemData>()
-        var explanation: String? = null
-
-        val lower = sourceText.lowercase()
-
-        if (lower.contains("aes") || lower.contains("encryption") || lower.contains("cipher")) {
-            cards.add(FlashcardItemData("What does AES stand for?", "Advanced Encryption Standard, a symmetric key block cipher."))
-            cards.add(FlashcardItemData("What key sizes does AES support?", "128-bit, 192-bit, and 256-bit secret key lengths."))
-            cards.add(FlashcardItemData("What block size does AES use?", "Fixed 128-bit block size (4x4 matrix of bytes)."))
-            cards.add(FlashcardItemData("What transformation steps are used in each AES round?", "SubBytes, ShiftRows, MixColumns, and AddRoundKey."))
-            cards.add(FlashcardItemData("How many rounds are performed for AES-128, AES-192, and AES-256?", "10 rounds for 128-bit, 12 rounds for 192-bit, and 14 rounds for 256-bit key size."))
-        } else if (lower.contains("dsa") || lower.contains("algorithm") || lower.contains("tree") || lower.contains("graph")) {
-            cards.add(FlashcardItemData("What is encapsulation in OOP?", "Bundling data and methods inside a single class to restrict direct access."))
-            cards.add(FlashcardItemData("What is the time complexity of BFS and DFS?", "O(V + E) where V is vertices and E is edges."))
-            cards.add(FlashcardItemData("What data structure is used by BFS vs DFS?", "BFS uses a Queue (FIFO), while DFS uses a Stack (LIFO) or recursion."))
-            cards.add(FlashcardItemData("What is a Binary Search Tree (BST)?", "A binary tree where the left subtree contains values less than node, and right subtree contains values greater."))
-            cards.add(FlashcardItemData("What is the worst-case time complexity of QuickSort?", "O(N^2) when pivot selection is poor; average case is O(N log N)."))
-        } else if (lower.contains("network") || lower.contains("osi") || lower.contains("tcp")) {
-            cards.add(FlashcardItemData("What are the 7 layers of the OSI model?", "1. Physical, 2. Data Link, 3. Network, 4. Transport, 5. Session, 6. Presentation, 7. Application."))
-            cards.add(FlashcardItemData("What is the main difference between TCP and UDP?", "TCP is connection-oriented and reliable; UDP is connectionless and lightweight."))
-            cards.add(FlashcardItemData("What is a subnet mask?", "A 32-bit number that separates the network address from the host address in IP addresses."))
-            cards.add(FlashcardItemData("What protocol maps IP addresses to MAC addresses?", "ARP (Address Resolution Protocol)."))
-            cards.add(FlashcardItemData("What port does HTTP and HTTPS default to?", "HTTP defaults to port 80; HTTPS defaults to port 443."))
-        } else {
-            // General concept extraction for any custom topic or note
-            cards.add(FlashcardItemData("What is the core definition of $topicName?", "Key principles, definitions, and foundational concepts of $topicName."))
-            cards.add(FlashcardItemData("What are the main application areas of $topicName?", "Practical implementation, real-world usage, and problem solving in $topicName."))
-            cards.add(FlashcardItemData("What key advantages does $topicName provide?", "Improved efficiency, security, structural clarity, and optimized performance."))
-            cards.add(FlashcardItemData("What common challenges exist when implementing $topicName?", "Managing complexity, trade-offs, resource constraints, and edge case handling."))
-            cards.add(FlashcardItemData("How do you evaluate performance and correctness in $topicName?", "Through testing, benchmark metrics, verification algorithms, and code reviews."))
-        }
-
-        // Deduplicate & Filter blank cards
-        val distinctCards = cards.distinctBy { it.front.trim().lowercase() }.filter { it.front.isNotBlank() && it.back.isNotBlank() }
-
-        val finalCards = distinctCards.take(requestedCount)
-        if (finalCards.size < requestedCount) {
-            explanation = "Note content provided ${finalCards.size} distinct concepts out of $requestedCount requested cards."
-        }
-
-        return Pair(finalCards, explanation)
+        return CampuslyAiService.generateFlashcards(rawTopic, selectedNote, requestedCount)
     }
 
     fun saveFlashcardDeck(deckName: String, cardItems: List<FlashcardItemData>) {
-        val userEmail = uiState.value.user?.email ?: "student@campusly.app"
+        val userEmail = uiState.value.user?.email ?: return
         viewModelScope.launch {
             cardItems.forEach { item ->
                 repository.addFlashcard(
@@ -758,11 +759,16 @@ class CampuslyViewModel(
     }
 
     fun updateFlashcard(card: FlashcardEntity) {
-        viewModelScope.launch { repository.addFlashcard(card) }
+        viewModelScope.launch { repository.updateFlashcard(card) }
     }
 
     fun deleteFlashcard(card: FlashcardEntity) {
-        viewModelScope.launch { repository.addFlashcard(card) } // Replaces / handles update or delete in repository
+        viewModelScope.launch { repository.deleteFlashcard(card) }
+    }
+
+    fun deleteFlashcardDeck(deckName: String) {
+        val userEmail = uiState.value.user?.email ?: return
+        viewModelScope.launch { repository.deleteFlashcardDeck(userEmail, deckName) }
     }
 
     fun addFlashcard(deckName: String, courseName: String, front: String, back: String) {

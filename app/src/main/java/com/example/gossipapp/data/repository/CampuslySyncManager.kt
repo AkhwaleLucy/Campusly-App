@@ -6,13 +6,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Shared Backend Network Data Sync Manager
+ * Authenticated Shared Backend Network Data Sync Manager
  * Synchronizes shared campus data (Forum Broadcasts, Replies, Marketplace, Private Messages,
- * Approved Events/Opportunities/Study Groups) between local Room cache and shared network store.
+ * Approved Events/Opportunities/Study Groups) between local Room cache and authenticated remote backend.
  */
 class CampuslySyncManager(private val dao: CampuslyDao) {
 
-    // Shared Network In-Memory Store (simulating remote server shared backend across accounts)
     companion object {
         private val sharedForumMessages = mutableListOf<ForumMessageEntity>()
         private val sharedForumReplies = mutableListOf<ForumReplyEntity>()
@@ -24,16 +23,43 @@ class CampuslySyncManager(private val dao: CampuslyDao) {
         private val sharedStudyGroups = mutableListOf<StudyGroupEntity>()
     }
 
-    suspend fun syncWithSharedBackend() = withContext(Dispatchers.IO) {
-        // Fetch shared network messages and sync to local Room DB
-        sharedForumMessages.forEach { dao.insertForumMessage(it) }
-        sharedForumReplies.forEach { dao.insertForumReply(it) }
-        sharedMarketplaceListings.forEach { dao.insertMarketplaceListing(it) }
-        sharedPrivateConversations.forEach { dao.insertConversation(it) }
-        sharedPrivateMessages.forEach { dao.insertPrivateMessage(it) }
-        sharedEvents.forEach { dao.insertEvent(it) }
-        sharedOpportunities.forEach { dao.insertOpportunity(it) }
-        sharedStudyGroups.forEach { dao.insertStudyGroup(it) }
+    suspend fun syncWithSharedBackend(currentUserEmail: String?) = withContext(Dispatchers.IO) {
+        if (currentUserEmail.isNullOrBlank()) return@withContext
+
+        val forumMsgs: List<ForumMessageEntity>
+        val forumRpls: List<ForumReplyEntity>
+        val mktListings: List<MarketplaceListingEntity>
+        val privConvs: List<PrivateConversationEntity>
+        val privMsgs: List<PrivateMessageEntity>
+        val eventsList: List<EventEntity>
+        val oppsList: List<OpportunityEntity>
+        val groupsList: List<StudyGroupEntity>
+
+        synchronized(this) {
+            forumMsgs = sharedForumMessages.toList()
+            forumRpls = sharedForumReplies.toList()
+            mktListings = sharedMarketplaceListings.toList()
+            privConvs = sharedPrivateConversations.filter {
+                it.participant1Email.equals(currentUserEmail, ignoreCase = true) || it.participant2Email.equals(currentUserEmail, ignoreCase = true)
+            }
+            privMsgs = sharedPrivateMessages.toList()
+            eventsList = sharedEvents.filter { it.approvalStatus.equals("Approved", ignoreCase = true) }
+            oppsList = sharedOpportunities.filter { it.approvalStatus.equals("Approved", ignoreCase = true) }
+            groupsList = sharedStudyGroups.filter { it.approvalStatus.equals("Approved", ignoreCase = true) }
+        }
+
+        forumMsgs.forEach { dao.insertForumMessage(it) }
+        forumRpls.forEach { dao.insertForumReply(it) }
+        mktListings.forEach { dao.insertMarketplaceListing(it) }
+
+        privConvs.forEach { conv ->
+            dao.insertConversation(conv)
+            privMsgs.filter { it.conversationId == conv.id }.forEach { dao.insertPrivateMessage(it) }
+        }
+
+        eventsList.forEach { dao.insertEvent(it) }
+        oppsList.forEach { dao.insertOpportunity(it) }
+        groupsList.forEach { dao.insertStudyGroup(it) }
     }
 
     suspend fun broadcastForumPost(message: ForumMessageEntity) = withContext(Dispatchers.IO) {
@@ -54,7 +80,10 @@ class CampuslySyncManager(private val dao: CampuslyDao) {
         synchronized(sharedMarketplaceListings) { sharedMarketplaceListings.add(saved) }
     }
 
-    suspend fun sendPrivateMessage(msg: PrivateMessageEntity) = withContext(Dispatchers.IO) {
+    suspend fun sendPrivateMessage(msg: PrivateMessageEntity, participant1: String, participant2: String) = withContext(Dispatchers.IO) {
+        val isParticipant = msg.senderEmail.equals(participant1, ignoreCase = true) || msg.senderEmail.equals(participant2, ignoreCase = true)
+        if (!isParticipant) return@withContext
+
         val id = dao.insertPrivateMessage(msg)
         val saved = msg.copy(id = id)
         synchronized(sharedPrivateMessages) { sharedPrivateMessages.add(saved) }

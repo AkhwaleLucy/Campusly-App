@@ -36,7 +36,7 @@ import kotlinx.coroutines.launch
         PrivateConversationEntity::class,
         PrivateMessageEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class CampuslyDatabase : RoomDatabase() {
@@ -140,6 +140,12 @@ abstract class CampuslyDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `users` ADD COLUMN `passwordHash` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun getDatabase(context: Context): CampuslyDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -147,9 +153,8 @@ abstract class CampuslyDatabase : RoomDatabase() {
                     CampuslyDatabase::class.java,
                     "campusly_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .addCallback(DatabaseCallback(context))
-                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

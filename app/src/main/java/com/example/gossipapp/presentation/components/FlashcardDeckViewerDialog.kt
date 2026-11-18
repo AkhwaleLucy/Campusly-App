@@ -69,8 +69,12 @@ fun FlashcardDeckViewerDialog(
                     }
                     IconButton(onClick = {
                         onDeleteCard(currentCard)
-                        if (currentIndex >= cards.size - 1) {
-                            currentIndex = maxOf(0, cards.size - 2)
+                        if (cards.size <= 1) {
+                            onDismiss()
+                        } else {
+                            if (currentIndex >= cards.size - 1) {
+                                currentIndex = maxOf(0, cards.size - 2)
+                            }
                         }
                     }) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete Card", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))

@@ -28,7 +28,8 @@ fun StudyScreen(
     onOpenAiAssistant: () -> Unit,
     onOpenFlashcardGenerator: () -> Unit,
     onDeleteFlashcardCard: (FlashcardEntity) -> Unit,
-    onSaveEditedFlashcardCard: (FlashcardEntity) -> Unit
+    onSaveEditedFlashcardCard: (FlashcardEntity) -> Unit,
+    onDeleteFlashcardDeck: (deckName: String) -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = Notes, 1 = Flashcards, 2 = Analytics
     var activeStudyDeckName by remember { mutableStateOf<String?>(null) }
@@ -91,7 +92,7 @@ fun StudyScreen(
 
             when (selectedTab) {
                 0 -> NotesTab(uiState.notes, onOpenAddNote, onOpenEditNote, onDeleteNote)
-                1 -> FlashcardsTab(uiState.flashcards, onOpenFlashcardGenerator, onOpenDeck = { activeStudyDeckName = it })
+                1 -> FlashcardsTab(uiState.flashcards, onOpenFlashcardGenerator, onOpenDeck = { activeStudyDeckName = it }, onDeleteDeck = onDeleteFlashcardDeck)
                 2 -> AnalyticsTab(uiState)
             }
         }
@@ -225,11 +226,13 @@ fun NoteCard(
 fun FlashcardsTab(
     flashcards: List<FlashcardEntity>,
     onOpenFlashcardGenerator: () -> Unit,
-    onOpenDeck: (deckName: String) -> Unit
+    onOpenDeck: (deckName: String) -> Unit,
+    onDeleteDeck: (deckName: String) -> Unit
 ) {
     val groupedDecks = remember(flashcards) {
         flashcards.groupBy { it.deckName }
     }
+    var deckToDelete by remember { mutableStateOf<String?>(null) }
 
     Column {
         Row(
@@ -284,7 +287,7 @@ fun FlashcardsTab(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Surface(
                                     color = MaterialTheme.colorScheme.secondary,
                                     shape = RoundedCornerShape(6.dp)
@@ -306,18 +309,50 @@ fun FlashcardsTab(
                                 )
                             }
 
-                            Button(
-                                onClick = { onOpenDeck(deckName) },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("Study Deck 📖")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Button(
+                                    onClick = { onOpenDeck(deckName) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Study 📖")
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                IconButton(onClick = { deckToDelete = deckName }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete Deck", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    // Confirmation Dialog before deleting entire deck
+    deckToDelete?.let { name ->
+        val cardCount = groupedDecks[name]?.size ?: 0
+        AlertDialog(
+            onDismissRequest = { deckToDelete = null },
+            title = { Text("Delete Flashcard Deck") },
+            text = { Text("Are you sure you want to delete deck '$name'? This will permanently remove all $cardCount cards in this deck.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteDeck(name)
+                        deckToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Deck")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deckToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

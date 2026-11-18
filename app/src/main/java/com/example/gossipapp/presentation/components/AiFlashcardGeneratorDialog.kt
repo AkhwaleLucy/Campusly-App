@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.gossipapp.data.local.entity.NoteEntity
+import kotlinx.coroutines.launch
 
 data class FlashcardItemData(
     var front: String,
@@ -25,11 +26,11 @@ data class FlashcardItemData(
 
 @Composable
 fun AiFlashcardGeneratorDialog(
-    initialTopic: String = "AES Encryption",
+    initialTopic: String = "Database Normalization",
     initialNote: NoteEntity? = null,
     notes: List<NoteEntity> = emptyList(),
     onDismiss: () -> Unit,
-    onGenerateCards: (topic: String, selectedNote: NoteEntity?, count: Int) -> Pair<List<FlashcardItemData>, String?>,
+    onGenerateCards: suspend (topic: String, selectedNote: NoteEntity?, count: Int) -> Pair<List<FlashcardItemData>, String?>,
     onSaveDeck: (deckName: String, cards: List<FlashcardItemData>) -> Unit
 ) {
     var topic by remember { mutableStateOf(initialTopic) }
@@ -42,6 +43,8 @@ fun AiFlashcardGeneratorDialog(
     var explanationMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val coroutineScope = rememberCoroutineScope()
 
     // Auto-generate on open
     LaunchedEffect(Unit) {
@@ -133,6 +136,12 @@ fun AiFlashcardGeneratorDialog(
                                 onClick = { cardCount = 5 },
                                 label = { Text("5") }
                             )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            FilterChip(
+                                selected = cardCount == 7,
+                                onClick = { cardCount = 7 },
+                                label = { Text("7") }
+                            )
                         }
                     }
                 }
@@ -177,17 +186,19 @@ fun AiFlashcardGeneratorDialog(
 
                 Button(
                     onClick = {
-                        isLoading = true
-                        try {
-                            val result = onGenerateCards(topic, if (useNote) selectedNote else null, cardCount)
-                            generatedCards.clear()
-                            generatedCards.addAll(result.first)
-                            explanationMessage = result.second
-                            errorMessage = null
-                        } catch (e: Exception) {
-                            errorMessage = "Flashcard generation failed: ${e.localizedMessage ?: "Unknown error"}. Please retry."
-                        } finally {
-                            isLoading = false
+                        coroutineScope.launch {
+                            isLoading = true
+                            try {
+                                val result = onGenerateCards(topic, if (useNote) selectedNote else null, cardCount)
+                                generatedCards.clear()
+                                generatedCards.addAll(result.first)
+                                explanationMessage = result.second
+                                errorMessage = null
+                            } catch (e: Exception) {
+                                errorMessage = "Flashcard generation failed: ${e.localizedMessage ?: "Unknown error"}. Please retry."
+                            } finally {
+                                isLoading = false
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -226,13 +237,20 @@ fun AiFlashcardGeneratorDialog(
                         ) {
                             Text(text = errorMessage!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
                             TextButton(onClick = {
-                                isLoading = true
-                                val result = onGenerateCards(topic, if (useNote) selectedNote else null, cardCount)
-                                generatedCards.clear()
-                                generatedCards.addAll(result.first)
-                                explanationMessage = result.second
-                                errorMessage = null
-                                isLoading = false
+                                coroutineScope.launch {
+                                    isLoading = true
+                                    try {
+                                        val result = onGenerateCards(topic, if (useNote) selectedNote else null, cardCount)
+                                        generatedCards.clear()
+                                        generatedCards.addAll(result.first)
+                                        explanationMessage = result.second
+                                        errorMessage = null
+                                    } catch (e: Exception) {
+                                        errorMessage = "Flashcard generation failed: ${e.localizedMessage ?: "Unknown error"}. Please retry."
+                                    } finally {
+                                        isLoading = false
+                                    }
+                                }
                             }) {
                                 Text("Retry")
                             }

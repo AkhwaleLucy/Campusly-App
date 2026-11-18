@@ -70,13 +70,14 @@ class MainActivity : ComponentActivity() {
                     }
                     "auth" -> {
                         AuthScreen(
-                            onSignUp = { name, email, uni, course, year ->
-                                viewModel.signUpUser(name, email, uni, course, year)
-                                currentRoute = "main"
+                            onSignUp = { name, email, pass, uni, course, year, onError ->
+                                viewModel.signUpUser(name, email, pass, uni, course, year, { currentRoute = "main" }, onError)
                             },
-                            onSignIn = { email ->
-                                viewModel.signInUser(email)
-                                currentRoute = "main"
+                            onSignIn = { email, pass, onError ->
+                                viewModel.signInUser(email, pass, { currentRoute = "main" }, onError)
+                            },
+                            onResetPassword = { email, pass, onSuccess, onError ->
+                                viewModel.resetPassword(email, pass, onSuccess, onError)
                             }
                         )
                     }
@@ -92,13 +93,14 @@ class MainActivity : ComponentActivity() {
                             )
                         } else {
                             AuthScreen(
-                                onSignUp = { name, email, uni, course, year ->
-                                    viewModel.signUpUser(name, email, uni, course, year)
-                                    currentRoute = "main"
+                                onSignUp = { name, email, pass, uni, course, year, onError ->
+                                    viewModel.signUpUser(name, email, pass, uni, course, year, { currentRoute = "main" }, onError)
                                 },
-                                onSignIn = { email ->
-                                    viewModel.signInUser(email)
-                                    currentRoute = "main"
+                                onSignIn = { email, pass, onError ->
+                                    viewModel.signInUser(email, pass, { currentRoute = "main" }, onError)
+                                },
+                                onResetPassword = { email, pass, onSuccess, onError ->
+                                    viewModel.resetPassword(email, pass, onSuccess, onError)
                                 }
                             )
                         }
@@ -251,13 +253,14 @@ fun MainAppContent(
                     onOpenStudyTimer = { showStudyTimer = true },
                     onOpenAiAssistant = { showAiAssistant = true },
                     onOpenFlashcardGenerator = {
-                        generatorTopic = "General Study"
+                        generatorTopic = "Database Normalization"
                         generatorNote = null
-                        generatorCount = 5
+                        generatorCount = 7
                         showFlashcardGenerator = true
                     },
                     onDeleteFlashcardCard = { viewModel.deleteFlashcard(it) },
-                    onSaveEditedFlashcardCard = { viewModel.updateFlashcard(it) }
+                    onSaveEditedFlashcardCard = { viewModel.updateFlashcard(it) },
+                    onDeleteFlashcardDeck = { viewModel.deleteFlashcardDeck(it) }
                 )
                 4 -> DiscoverScreen(
                     uiState = uiState,
@@ -474,7 +477,7 @@ fun MainAppContent(
         PrivateMessageDialog(
             conversation = conv,
             messages = uiState.activeConversationMessages,
-            currentUserEmail = uiState.user?.email ?: "student@campusly.app",
+            currentUserEmail = uiState.user?.email ?: "",
             onDismiss = { viewModel.selectConversation(null) },
             onSendMessage = { convId, text -> viewModel.sendPrivateMessage(convId, text) }
         )

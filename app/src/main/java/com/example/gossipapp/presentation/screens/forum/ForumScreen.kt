@@ -170,11 +170,17 @@ fun ForumScreen(
                                     if (messageText.isNotBlank()) {
                                         isSending = true
                                         filterCategory = "All" // Reset filter so new message is visible
-                                        onSendBroadcast(selectedCategory, messageText.trim(), isAnonymous)
+                                        val textToPost = messageText.trim()
                                         messageText = ""
+                                        onSendBroadcast(selectedCategory, textToPost, isAnonymous)
                                         isSending = false
                                         coroutineScope.launch {
-                                            listState.animateScrollToItem(3) // Scroll to top of message feed
+                                            val targetIndex = filteredMessages.indexOfFirst { it.message == textToPost }
+                                            if (targetIndex >= 0) {
+                                                listState.animateScrollToItem(targetIndex + 3)
+                                            } else {
+                                                listState.animateScrollToItem(3)
+                                            }
                                         }
                                     }
                                 },

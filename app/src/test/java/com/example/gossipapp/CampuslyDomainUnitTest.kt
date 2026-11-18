@@ -1,10 +1,11 @@
 package com.example.gossipapp
 
+import com.example.gossipapp.data.ai.CampuslyAiService
+import com.example.gossipapp.data.auth.CampuslyBackendConfig
 import com.example.gossipapp.data.local.entity.GpaRecordEntity
 import com.example.gossipapp.data.local.entity.NoteEntity
 import com.example.gossipapp.data.local.entity.StudySessionEntity
 import com.example.gossipapp.data.local.entity.TimetableEntity
-import com.example.gossipapp.presentation.components.FlashcardItemData
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -104,63 +105,39 @@ class CampuslyDomainUnitTest {
     }
 
     @Test
-    fun trustedAdminCheck_restrictsAdminRoleExclusiveToAdminEmail() {
-        val adminEmail = "admin@campusly.app"
+    fun trustedAdminCheck_restrictsAdminRoleExclusiveToConfiguredBackendAccounts() {
+        val adminId = "admin-user-id-123"
+        val adminEmail = "verified_admin@campusly.app"
         val studentEmail = "student@campusly.app"
 
-        assertTrue(isAdminEmail(adminEmail))
-        assertFalse(isAdminEmail(studentEmail))
+        CampuslyBackendConfig.configureTrustedAdminAccounts(
+            adminIds = setOf(adminId),
+            adminEmails = setOf(adminEmail)
+        )
+
+        assertTrue(CampuslyBackendConfig.isVerifiedAdmin(adminId, adminEmail))
+        assertFalse(CampuslyBackendConfig.isVerifiedAdmin("random-id", studentEmail))
     }
 
     @Test
-    fun aiFlashcardGenerator_generatesStructuredDistinctCardsForAES() {
-        val result = generateFlashcardsEngine("AES Encryption", null, 5)
+    fun aiFlashcardGenerator_generatesStructuredCardsForDatabaseNormalization() {
+        val result = CampuslyAiService.generateStructuredCardsLocally("Database Normalization", "database normalization", false, 7)
         val cards = result.first
 
-        assertEquals(5, cards.size)
-        assertTrue(cards.any { it.front.contains("AES", ignoreCase = true) })
-        assertTrue(cards.any { it.back.contains("128", ignoreCase = true) })
+        assertEquals(7, cards.size)
+        assertTrue(cards.any { it.front.contains("1NF", ignoreCase = true) || it.front.contains("Normalization", ignoreCase = true) })
+        assertTrue(cards.any { it.back.contains("redundancy", ignoreCase = true) || it.back.contains("atomic", ignoreCase = true) })
     }
 
     @Test
     fun aiFlashcardGenerator_handlesShortNoteContentWithExplanation() {
         val shortNote = NoteEntity(title = "Brief Note", content = "AES uses 128-bit block size.")
-        val result = generateFlashcardsEngine("", shortNote, 5)
+        val result = CampuslyAiService.generateStructuredCardsLocally(shortNote.title, shortNote.content, true, 5)
 
         assertNotNull(result.first)
         assertTrue(result.first.isNotEmpty())
-    }
-
-    private fun generateFlashcardsEngine(rawTopic: String, selectedNote: NoteEntity?, requestedCount: Int): Pair<List<FlashcardItemData>, String?> {
-        val isNoteBased = selectedNote != null
-        val sourceText = if (isNoteBased) selectedNote!!.content else rawTopic.trim()
-
-        val cards = mutableListOf<FlashcardItemData>()
-        var explanation: String? = null
-        val lower = sourceText.lowercase()
-
-        if (lower.contains("aes") || lower.contains("encryption")) {
-            cards.add(FlashcardItemData("What does AES stand for?", "Advanced Encryption Standard, a symmetric key block cipher."))
-            cards.add(FlashcardItemData("What key sizes does AES support?", "128-bit, 192-bit, and 256-bit secret key lengths."))
-            cards.add(FlashcardItemData("What block size does AES use?", "Fixed 128-bit block size (4x4 matrix of bytes)."))
-            cards.add(FlashcardItemData("What transformation steps are used in each AES round?", "SubBytes, ShiftRows, MixColumns, and AddRoundKey."))
-            cards.add(FlashcardItemData("How many rounds are performed for AES-128, AES-192, and AES-256?", "10 rounds for 128-bit, 12 rounds for 192-bit, and 14 rounds for 256-bit key size."))
-        } else {
-            cards.add(FlashcardItemData("What is the core definition?", "Key principles and definitions."))
-            cards.add(FlashcardItemData("What are the main application areas?", "Practical implementation."))
-        }
-
-        val distinctCards = cards.distinctBy { it.front.trim().lowercase() }.filter { it.front.isNotBlank() && it.back.isNotBlank() }
-        val finalCards = distinctCards.take(requestedCount)
-        if (finalCards.size < requestedCount) {
-            explanation = "Note content provided ${finalCards.size} distinct concepts out of $requestedCount requested cards."
-        }
-
-        return Pair(finalCards, explanation)
-    }
-
-    private fun isAdminEmail(email: String): Boolean {
-        return email.trim().lowercase() == "admin@campusly.app"
+        assertNotNull(result.second)
+        assertTrue(result.second!!.contains("Note content provided"))
     }
 
     private fun isQuietHours(start: String, end: String, now: Calendar): Boolean {

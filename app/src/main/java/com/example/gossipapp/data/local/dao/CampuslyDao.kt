@@ -11,6 +11,15 @@ interface CampuslyDao {
     @Query("SELECT * FROM users LIMIT 1")
     fun getUser(): Flow<UserEntity?>
 
+    @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
+    suspend fun getUserByEmail(email: String): UserEntity?
+
+    @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
+    fun getUserByEmailFlow(email: String): Flow<UserEntity?>
+
+    @Query("SELECT * FROM users WHERE id = :id LIMIT 1")
+    suspend fun getUserById(id: String): UserEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: UserEntity)
 
@@ -126,6 +135,15 @@ interface CampuslyDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFlashcard(flashcard: FlashcardEntity): Long
+
+    @Update
+    suspend fun updateFlashcard(flashcard: FlashcardEntity)
+
+    @Delete
+    suspend fun deleteFlashcard(flashcard: FlashcardEntity)
+
+    @Query("DELETE FROM flashcards WHERE userEmail = :userEmail AND deckName = :deckName")
+    suspend fun deleteFlashcardDeck(userEmail: String, deckName: String)
 
     // GPA Records
     @Query("SELECT * FROM gpa_records ORDER BY id ASC")
