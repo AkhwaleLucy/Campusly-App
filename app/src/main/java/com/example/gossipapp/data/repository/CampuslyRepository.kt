@@ -90,6 +90,8 @@ class CampuslyRepository(
     suspend fun addFlashcard(flashcard: FlashcardEntity): Long = dao.insertFlashcard(flashcard)
     suspend fun updateFlashcard(flashcard: FlashcardEntity) = dao.updateFlashcard(flashcard)
     suspend fun deleteFlashcard(flashcard: FlashcardEntity) = dao.deleteFlashcard(flashcard)
+    suspend fun deleteFlashcardScoped(id: Long, userEmail: String) = dao.deleteFlashcardScoped(id, userEmail)
+    suspend fun updateFlashcardScoped(id: Long, userEmail: String, front: String, back: String) = dao.updateFlashcardScoped(id, userEmail, front, back)
     suspend fun deleteFlashcardDeck(userEmail: String, deckName: String) = dao.deleteFlashcardDeck(userEmail, deckName)
 
     // GPA

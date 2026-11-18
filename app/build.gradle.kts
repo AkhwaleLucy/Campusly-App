@@ -1,3 +1,5 @@
+System.setProperty("user.variant", "US")
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -32,8 +34,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    buildFeatures {
-        compose = true
+    testOptions {
+        unitTests.all { test ->
+            test.systemProperty("user.variant", "US")
+            test.jvmArgs("-Duser.variant=US")
+        }
     }
 }
 

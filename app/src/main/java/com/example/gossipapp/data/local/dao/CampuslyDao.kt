@@ -145,6 +145,12 @@ interface CampuslyDao {
     @Query("DELETE FROM flashcards WHERE userEmail = :userEmail AND deckName = :deckName")
     suspend fun deleteFlashcardDeck(userEmail: String, deckName: String)
 
+    @Query("DELETE FROM flashcards WHERE id = :id AND userEmail = :userEmail")
+    suspend fun deleteFlashcardScoped(id: Long, userEmail: String)
+
+    @Query("UPDATE flashcards SET front = :front, back = :back WHERE id = :id AND userEmail = :userEmail")
+    suspend fun updateFlashcardScoped(id: Long, userEmail: String, front: String, back: String)
+
     // GPA Records
     @Query("SELECT * FROM gpa_records ORDER BY id ASC")
     fun getAllGpaRecords(): Flow<List<GpaRecordEntity>>

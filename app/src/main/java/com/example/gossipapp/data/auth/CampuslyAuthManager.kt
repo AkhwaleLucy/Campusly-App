@@ -63,11 +63,12 @@ class CampuslyAuthManager(
         val user = dao.getUserByEmail(cleanEmail)
             ?: return AuthResult.Error("Unregistered email address ($cleanEmail). No account found. Please Sign Up first.")
 
-        if (user.passwordHash.isNotBlank()) {
-            val hash = hashPassword(password)
-            if (user.passwordHash != hash) {
-                return AuthResult.Error("Incorrect password. Please verify your credentials and try again.")
-            }
+        if (user.passwordHash.isBlank()) {
+            return AuthResult.Error("Account legacy session expired or incomplete. Please reset your password to set up credentials.")
+        }
+        val hash = hashPassword(password)
+        if (user.passwordHash != hash) {
+            return AuthResult.Error("Incorrect password. Please verify your credentials and try again.")
         }
 
         val isAdmin = CampuslyBackendConfig.isVerifiedAdmin(user.id, cleanEmail)

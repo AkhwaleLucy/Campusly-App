@@ -1,3 +1,7 @@
+if (System.getProperty("user.variant").isNullOrEmpty()) {
+    System.setProperty("user.variant", "US")
+}
+
 pluginManagement {
     repositories {
         google {

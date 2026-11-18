@@ -228,8 +228,6 @@ class CampuslyViewModel(
         viewModelScope.launch {
             when (val result = authManager.resetPassword(email, newPassword)) {
                 is AuthResult.Success -> {
-                    repository.setCurrentUserEmailPref(result.user.email)
-                    repository.setLoggedIn(true)
                     onSuccess()
                 }
                 is AuthResult.Error -> {
@@ -759,11 +757,13 @@ class CampuslyViewModel(
     }
 
     fun updateFlashcard(card: FlashcardEntity) {
-        viewModelScope.launch { repository.updateFlashcard(card) }
+        val userEmail = uiState.value.user?.email ?: card.userEmail
+        viewModelScope.launch { repository.updateFlashcardScoped(card.id, userEmail, card.front, card.back) }
     }
 
     fun deleteFlashcard(card: FlashcardEntity) {
-        viewModelScope.launch { repository.deleteFlashcard(card) }
+        val userEmail = uiState.value.user?.email ?: card.userEmail
+        viewModelScope.launch { repository.deleteFlashcardScoped(card.id, userEmail) }
     }
 
     fun deleteFlashcardDeck(deckName: String) {
