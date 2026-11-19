@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun AddMarketplaceListingDialog(
+    currentUserName: String = "Student",
     onDismiss: () -> Unit,
     onAddListing: (title: String, description: String, priceKes: Double, category: String, sellerName: String, location: String) -> Unit
 ) {
@@ -64,7 +65,7 @@ fun AddMarketplaceListingDialog(
                 onClick = {
                     if (title.isNotBlank()) {
                         val price = priceInput.toDoubleOrNull() ?: 2500.0
-                        onAddListing(title, description, price, category, "Lucy Vance", location)
+                        onAddListing(title, description, price, category, currentUserName, location)
                         onDismiss()
                     }
                 },

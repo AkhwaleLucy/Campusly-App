@@ -11,10 +11,21 @@ import com.example.gossipapp.data.local.entity.*
 import com.example.gossipapp.data.repository.CampuslyRepository
 import com.example.gossipapp.presentation.components.FlashcardItemData
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+
+data class ActiveTimerState(
+    val isRunning: Boolean = false,
+    val isPaused: Boolean = false,
+    val courseName: String = "",
+    val topic: String = "",
+    val totalSeconds: Int = 0,
+    val remainingSeconds: Int = 0
+)
 
 data class CampuslyUiState(
     val user: UserEntity? = null,
@@ -82,6 +93,10 @@ class CampuslyViewModel(
         if (email.isBlank()) flowOf(emptyList()) else repository.getConversationsForUser(email)
     }
 
+    private val userTasksFlow: Flow<List<TaskEntity>> = currentUserEmailFlow.flatMapLatest { email ->
+        if (email.isBlank()) flowOf(emptyList()) else repository.getTasksForUser(email)
+    }
+
     private val forumRepliesFlow: Flow<List<ForumReplyEntity>> = _selectedPostId.flatMapLatest { postId ->
         if (postId != null) repository.getRepliesForPost(postId) else flowOf(emptyList())
     }
@@ -106,7 +121,7 @@ class CampuslyViewModel(
             repository.allTimetable,
             repository.allAssignments,
             repository.allExams,
-            repository.allTasks,
+            userTasksFlow,
             repository.allNotes,
             repository.allStudySessions,
             userFlashcardsFlow,
@@ -221,14 +236,13 @@ class CampuslyViewModel(
 
     fun resetPassword(
         email: String,
-        newPassword: String,
-        onSuccess: () -> Unit,
+        onSuccess: (String) -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
-            when (val result = authManager.resetPassword(email, newPassword)) {
+            when (val result = authManager.sendPasswordRecoveryEmail(email)) {
                 is AuthResult.Success -> {
-                    onSuccess()
+                    onSuccess(result.infoMessage ?: "Password recovery link sent to $email.")
                 }
                 is AuthResult.Error -> {
                     onError(result.message)
@@ -382,22 +396,84 @@ class CampuslyViewModel(
     }
 
     // Tasks & Smart Study Plan CRUD
-    fun addTask(task: TaskEntity) {
-        val userEmail = uiState.value.user?.email ?: "student@campusly.app"
-        viewModelScope.launch { repository.addTask(task.copy(userEmail = userEmail)) }
+    fun addTask(
+        task: TaskEntity,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val userEmail = uiState.value.user?.email
+        if (userEmail.isNullOrBlank()) {
+            onError("You must be signed in to create a task.")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val newId = repository.addTask(task.copy(userEmail = userEmail))
+                if (newId > 0) {
+                    onSuccess()
+                } else {
+                    onError("Failed to save task to database.")
+                }
+            } catch (e: Exception) {
+                onError("Database error: ${e.localizedMessage}")
+            }
+        }
     }
 
-    fun updateTask(task: TaskEntity) {
-        viewModelScope.launch { repository.updateTask(task) }
+    fun updateTask(
+        task: TaskEntity,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val userEmail = uiState.value.user?.email ?: task.userEmail
+        if (userEmail.isBlank()) {
+            onError("Authentication required to update task.")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val updatedCount = repository.updateTaskScoped(
+                    id = task.id,
+                    userEmail = userEmail,
+                    title = task.title,
+                    subject = task.subject,
+                    description = task.description,
+                    priority = task.priority,
+                    isCompleted = task.isCompleted
+                )
+                if (updatedCount > 0) {
+                    onSuccess()
+                } else {
+                    onError("Failed to update task in database.")
+                }
+            } catch (e: Exception) {
+                onError("Database error: ${e.localizedMessage}")
+            }
+        }
     }
 
     fun deleteTask(task: TaskEntity) {
-        viewModelScope.launch { repository.deleteTask(task) }
+        val userEmail = uiState.value.user?.email ?: task.userEmail
+        if (userEmail.isBlank()) return
+        viewModelScope.launch {
+            repository.deleteTaskScoped(task.id, userEmail)
+        }
     }
 
     fun toggleTaskCompleted(task: TaskEntity) {
+        val userEmail = uiState.value.user?.email ?: task.userEmail
+        if (userEmail.isBlank()) return
+        val newCompleted = !task.isCompleted
         viewModelScope.launch {
-            repository.updateTask(task.copy(isCompleted = !task.isCompleted))
+            repository.updateTaskScoped(
+                id = task.id,
+                userEmail = userEmail,
+                title = task.title,
+                subject = task.subject,
+                description = task.description,
+                priority = task.priority,
+                isCompleted = newCompleted
+            )
         }
     }
 
@@ -703,6 +779,56 @@ class CampuslyViewModel(
         val newJoined = !group.isJoined
         val newCount = if (newJoined) group.memberCount + 1 else maxOf(1, group.memberCount - 1)
         viewModelScope.launch { repository.updateStudyGroup(group.copy(isJoined = newJoined, memberCount = newCount)) }
+    }
+
+    // Shared Study Timer Engine
+    private val _timerState = MutableStateFlow(ActiveTimerState())
+    val timerState: StateFlow<ActiveTimerState> = _timerState.asStateFlow()
+    private var timerJob: Job? = null
+
+    fun startTimer(courseName: String, topic: String, durationMinutes: Int) {
+        timerJob?.cancel()
+        val totalSecs = maxOf(1, durationMinutes * 60)
+        _timerState.value = ActiveTimerState(
+            isRunning = true,
+            isPaused = false,
+            courseName = courseName,
+            topic = topic,
+            totalSeconds = totalSecs,
+            remainingSeconds = totalSecs
+        )
+
+        timerJob = viewModelScope.launch {
+            while (_timerState.value.remainingSeconds > 0 && _timerState.value.isRunning) {
+                delay(1000L)
+                if (!_timerState.value.isPaused) {
+                    val nextSec = _timerState.value.remainingSeconds - 1
+                    if (nextSec <= 0) {
+                        recordStudySession(
+                            courseName = _timerState.value.courseName,
+                            topic = _timerState.value.topic,
+                            durationMinutes = maxOf(1, _timerState.value.totalSeconds / 60)
+                        )
+                        _timerState.value = ActiveTimerState(isRunning = false)
+                    } else {
+                        _timerState.value = _timerState.value.copy(remainingSeconds = nextSec)
+                    }
+                }
+            }
+        }
+    }
+
+    fun pauseTimer() {
+        _timerState.value = _timerState.value.copy(isPaused = true)
+    }
+
+    fun resumeTimer() {
+        _timerState.value = _timerState.value.copy(isPaused = false)
+    }
+
+    fun cancelTimer() {
+        timerJob?.cancel()
+        _timerState.value = ActiveTimerState(isRunning = false)
     }
 
     // Pomodoro & Analytics

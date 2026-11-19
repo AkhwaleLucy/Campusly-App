@@ -76,8 +76,8 @@ class MainActivity : ComponentActivity() {
                             onSignIn = { email, pass, onError ->
                                 viewModel.signInUser(email, pass, { currentRoute = "main" }, onError)
                             },
-                            onResetPassword = { email, pass, onSuccess, onError ->
-                                viewModel.resetPassword(email, pass, onSuccess, onError)
+                            onResetPassword = { email, onSuccess, onError ->
+                                viewModel.resetPassword(email, onSuccess, onError)
                             }
                         )
                     }
@@ -99,8 +99,8 @@ class MainActivity : ComponentActivity() {
                                 onSignIn = { email, pass, onError ->
                                     viewModel.signInUser(email, pass, { currentRoute = "main" }, onError)
                                 },
-                                onResetPassword = { email, pass, onSuccess, onError ->
-                                    viewModel.resetPassword(email, pass, onSuccess, onError)
+                                onResetPassword = { email, onSuccess, onError ->
+                                    viewModel.resetPassword(email, onSuccess, onError)
                                 }
                             )
                         }
@@ -118,6 +118,8 @@ fun MainAppContent(
     onLogout: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val timerState by viewModel.timerState.collectAsState()
+
     var selectedTab by remember { mutableIntStateOf(0) } // 0=Home, 1=Planner, 2=Forum, 3=Study, 4=Discover, 5=Profile
 
     // Dialog state controllers
@@ -206,6 +208,7 @@ fun MainAppContent(
             when (selectedTab) {
                 0 -> HomeScreen(
                     uiState = uiState,
+                    timerState = timerState,
                     onOpenAddAssignment = { showAddAssignment = true },
                     onOpenAddNote = { showAddNote = true },
                     onOpenAddExam = { showAddExam = true },
@@ -344,7 +347,9 @@ fun MainAppContent(
     if (showAddTask) {
         AddTaskDialog(
             onDismiss = { showAddTask = false },
-            onAddTask = { viewModel.addTask(it) }
+            onAddTask = { task, onSuccess, onError ->
+                viewModel.addTask(task, onSuccess, onError)
+            }
         )
     }
 
@@ -435,7 +440,9 @@ fun MainAppContent(
         EditTaskDialog(
             task = task,
             onDismiss = { editingTask = null },
-            onSaveTask = { viewModel.updateTask(it) },
+            onSaveTask = { updatedTask, onSuccess, onError ->
+                viewModel.updateTask(updatedTask, onSuccess, onError)
+            },
             onDeleteTask = { viewModel.deleteTask(it) }
         )
     }
@@ -486,7 +493,12 @@ fun MainAppContent(
     if (showStudyTimer) {
         StudyTimerDialog(
             courses = uiState.courses,
+            timerState = timerState,
             onDismiss = { showStudyTimer = false },
+            onStartTimer = { course, topic, duration -> viewModel.startTimer(course, topic, duration) },
+            onPauseTimer = { viewModel.pauseTimer() },
+            onResumeTimer = { viewModel.resumeTimer() },
+            onCancelTimer = { viewModel.cancelTimer() },
             onRecordSession = { course, topic, duration ->
                 viewModel.recordStudySession(course, topic, duration)
             }
@@ -520,6 +532,7 @@ fun MainAppContent(
 
     if (showAddMarketplace) {
         AddMarketplaceListingDialog(
+            currentUserName = uiState.user?.fullName ?: "Student",
             onDismiss = { showAddMarketplace = false },
             onAddListing = { title, desc, price, cat, seller, loc ->
                 viewModel.addMarketplaceListing(title, desc, price, cat, seller, loc)

@@ -1,11 +1,13 @@
 package com.example.gossipapp
 
 import com.example.gossipapp.data.ai.CampuslyAiService
+import com.example.gossipapp.data.auth.CampuslyAuthManager
 import com.example.gossipapp.data.auth.CampuslyBackendConfig
 import com.example.gossipapp.data.local.entity.GpaRecordEntity
 import com.example.gossipapp.data.local.entity.NoteEntity
 import com.example.gossipapp.data.local.entity.StudySessionEntity
 import com.example.gossipapp.data.local.entity.TimetableEntity
+import com.example.gossipapp.data.local.entity.TaskEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -15,6 +17,115 @@ import java.util.Calendar
 import java.util.UUID
 
 class CampuslyDomainUnitTest {
+
+    @Test
+    fun institutionalEmailValidator_acceptsValidAcKeDomainsAndRejectsPersonalOrLookalikeDomains() {
+        val dummyDao = object : com.example.gossipapp.data.local.dao.CampuslyDao {
+            override fun getUser(): kotlinx.coroutines.flow.Flow<com.example.gossipapp.data.local.entity.UserEntity?> = kotlinx.coroutines.flow.flowOf(null)
+            override suspend fun getUserByEmail(email: String): com.example.gossipapp.data.local.entity.UserEntity? = null
+            override fun getUserByEmailFlow(email: String): kotlinx.coroutines.flow.Flow<com.example.gossipapp.data.local.entity.UserEntity?> = kotlinx.coroutines.flow.flowOf(null)
+            override suspend fun getUserById(id: String): com.example.gossipapp.data.local.entity.UserEntity? = null
+            override suspend fun insertUser(user: com.example.gossipapp.data.local.entity.UserEntity) {}
+            override suspend fun clearUser() {}
+            override fun getAllCourses(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.CourseEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertCourse(course: com.example.gossipapp.data.local.entity.CourseEntity): Long = 0
+            override suspend fun deleteCourse(course: com.example.gossipapp.data.local.entity.CourseEntity) {}
+            override fun getTimetableForUser(userEmail: String): kotlinx.coroutines.flow.Flow<List<TimetableEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getAllTimetable(): kotlinx.coroutines.flow.Flow<List<TimetableEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getTimetableForDay(dayOfWeek: Int): kotlinx.coroutines.flow.Flow<List<TimetableEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertTimetable(timetable: TimetableEntity): Long = 0
+            override suspend fun deleteTimetable(timetable: TimetableEntity) {}
+            override fun getAssignmentsForUser(userEmail: String): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.AssignmentEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getAllAssignments(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.AssignmentEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertAssignment(assignment: com.example.gossipapp.data.local.entity.AssignmentEntity): Long = 0
+            override suspend fun updateAssignment(assignment: com.example.gossipapp.data.local.entity.AssignmentEntity) {}
+            override suspend fun deleteAssignment(assignment: com.example.gossipapp.data.local.entity.AssignmentEntity) {}
+            override fun getExamsForUser(userEmail: String): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.ExamEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getAllExams(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.ExamEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertExam(exam: com.example.gossipapp.data.local.entity.ExamEntity): Long = 0
+            override suspend fun updateExam(exam: com.example.gossipapp.data.local.entity.ExamEntity) {}
+            override suspend fun deleteExam(exam: com.example.gossipapp.data.local.entity.ExamEntity) {}
+            override fun getTasksForUser(userEmail: String): kotlinx.coroutines.flow.Flow<List<TaskEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getAllTasks(): kotlinx.coroutines.flow.Flow<List<TaskEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertTask(task: TaskEntity): Long = 0
+            override suspend fun updateTask(task: TaskEntity) {}
+            override suspend fun deleteTask(task: TaskEntity) {}
+            override suspend fun deleteTaskScoped(id: Long, userEmail: String): Int = 0
+            override suspend fun updateTaskScoped(id: Long, userEmail: String, title: String, subject: String, description: String, priority: String, isCompleted: Boolean): Int = 0
+            override fun getNotesForUser(userEmail: String): kotlinx.coroutines.flow.Flow<List<NoteEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getAllNotes(): kotlinx.coroutines.flow.Flow<List<NoteEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertNote(note: NoteEntity): Long = 0
+            override suspend fun updateNote(note: NoteEntity) {}
+            override suspend fun deleteNote(note: NoteEntity) {}
+            override fun getStudySessionsForUser(userEmail: String): kotlinx.coroutines.flow.Flow<List<StudySessionEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getAllStudySessions(): kotlinx.coroutines.flow.Flow<List<StudySessionEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertStudySession(session: StudySessionEntity): Long = 0
+            override fun getFlashcardsForUser(userEmail: String): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.FlashcardEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getAllFlashcards(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.FlashcardEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertFlashcard(flashcard: com.example.gossipapp.data.local.entity.FlashcardEntity): Long = 0
+            override suspend fun updateFlashcard(flashcard: com.example.gossipapp.data.local.entity.FlashcardEntity) {}
+            override suspend fun deleteFlashcard(flashcard: com.example.gossipapp.data.local.entity.FlashcardEntity) {}
+            override suspend fun deleteFlashcardDeck(userEmail: String, deckName: String) {}
+            override suspend fun deleteFlashcardScoped(id: Long, userEmail: String) {}
+            override suspend fun updateFlashcardScoped(id: Long, userEmail: String, front: String, back: String) {}
+            override fun getAllGpaRecords(): kotlinx.coroutines.flow.Flow<List<GpaRecordEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertGpaRecord(record: GpaRecordEntity): Long = 0
+            override fun getApprovedEvents(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.EventEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getPendingEvents(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.EventEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getUserEvents(email: String): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.EventEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getAllEvents(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.EventEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertEvent(event: com.example.gossipapp.data.local.entity.EventEntity): Long = 0
+            override suspend fun updateEvent(event: com.example.gossipapp.data.local.entity.EventEntity) {}
+            override suspend fun deleteEvent(event: com.example.gossipapp.data.local.entity.EventEntity) {}
+            override fun getApprovedOpportunities(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.OpportunityEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getPendingOpportunities(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.OpportunityEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getUserOpportunities(email: String): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.OpportunityEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getAllOpportunities(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.OpportunityEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertOpportunity(opportunity: com.example.gossipapp.data.local.entity.OpportunityEntity): Long = 0
+            override suspend fun updateOpportunity(opportunity: com.example.gossipapp.data.local.entity.OpportunityEntity) {}
+            override suspend fun deleteOpportunity(opportunity: com.example.gossipapp.data.local.entity.OpportunityEntity) {}
+            override fun getApprovedStudyGroups(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.StudyGroupEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getPendingStudyGroups(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.StudyGroupEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getUserStudyGroups(email: String): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.StudyGroupEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override fun getAllStudyGroups(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.StudyGroupEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertStudyGroup(group: com.example.gossipapp.data.local.entity.StudyGroupEntity): Long = 0
+            override suspend fun updateStudyGroup(group: com.example.gossipapp.data.local.entity.StudyGroupEntity) {}
+            override suspend fun deleteStudyGroup(group: com.example.gossipapp.data.local.entity.StudyGroupEntity) {}
+            override fun getAllMarketplaceListings(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.MarketplaceListingEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertMarketplaceListing(listing: com.example.gossipapp.data.local.entity.MarketplaceListingEntity): Long = 0
+            override suspend fun updateMarketplaceListing(listing: com.example.gossipapp.data.local.entity.MarketplaceListingEntity) {}
+            override suspend fun deleteMarketplaceListing(listing: com.example.gossipapp.data.local.entity.MarketplaceListingEntity) {}
+            override fun getConversationsForUser(email: String): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.PrivateConversationEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun getConversationBetween(listingId: Long, e1: String, e2: String): com.example.gossipapp.data.local.entity.PrivateConversationEntity? = null
+            override suspend fun insertConversation(conversation: com.example.gossipapp.data.local.entity.PrivateConversationEntity): Long = 0
+            override suspend fun updateConversation(conversation: com.example.gossipapp.data.local.entity.PrivateConversationEntity) {}
+            override fun getMessagesForConversation(convId: Long): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.PrivateMessageEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertPrivateMessage(message: com.example.gossipapp.data.local.entity.PrivateMessageEntity): Long = 0
+            override fun getAllBudgets(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.BudgetEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertBudget(budget: com.example.gossipapp.data.local.entity.BudgetEntity): Long = 0
+            override fun getAllSavingsGoals(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.SavingsGoalEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertSavingsGoal(goal: com.example.gossipapp.data.local.entity.SavingsGoalEntity): Long = 0
+            override fun getAllAttendance(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.AttendanceRecordEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertAttendance(record: com.example.gossipapp.data.local.entity.AttendanceRecordEntity): Long = 0
+            override suspend fun updateAttendance(record: com.example.gossipapp.data.local.entity.AttendanceRecordEntity) {}
+            override fun getAllForumMessages(): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.ForumMessageEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertForumMessage(message: com.example.gossipapp.data.local.entity.ForumMessageEntity): Long = 0
+            override suspend fun updateForumMessage(message: com.example.gossipapp.data.local.entity.ForumMessageEntity) {}
+            override suspend fun deleteForumMessage(message: com.example.gossipapp.data.local.entity.ForumMessageEntity) {}
+            override fun getRepliesForPost(postId: Long): kotlinx.coroutines.flow.Flow<List<com.example.gossipapp.data.local.entity.ForumReplyEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+            override suspend fun insertForumReply(reply: com.example.gossipapp.data.local.entity.ForumReplyEntity): Long = 0
+            override suspend fun deleteForumReply(reply: com.example.gossipapp.data.local.entity.ForumReplyEntity) {}
+        }
+
+        val authManager = CampuslyAuthManager(dummyDao)
+
+        assertTrue(authManager.isValidInstitutionalEmail("student@usiu.ac.ke"))
+        assertTrue(authManager.isValidInstitutionalEmail("LUCY.VANCE@STUDENTS.UONBI.AC.KE"))
+        assertFalse(authManager.isValidInstitutionalEmail("user@gmail.com"))
+        assertFalse(authManager.isValidInstitutionalEmail("usiu.ac.ke.example.com"))
+        assertFalse(authManager.isValidInstitutionalEmail("user@usiu.ac.ke.fake.org"))
+        assertFalse(authManager.isValidInstitutionalEmail("invalid-email"))
+    }
 
     @Test
     fun calculateCumulativeGpa_calculatesWeightedAverageCorrectly() {
@@ -107,8 +218,8 @@ class CampuslyDomainUnitTest {
     @Test
     fun trustedAdminCheck_restrictsAdminRoleExclusiveToConfiguredBackendAccounts() {
         val adminId = "admin-user-id-123"
-        val adminEmail = "verified_admin@campusly.app"
-        val studentEmail = "student@campusly.app"
+        val adminEmail = "verified_admin@usiu.ac.ke"
+        val studentEmail = "student@usiu.ac.ke"
 
         CampuslyBackendConfig.configureTrustedAdminAccounts(
             adminIds = setOf(adminId),

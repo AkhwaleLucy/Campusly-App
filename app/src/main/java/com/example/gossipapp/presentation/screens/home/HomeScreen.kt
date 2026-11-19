@@ -21,14 +21,151 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.gossipapp.R
 import com.example.gossipapp.data.local.entity.AssignmentEntity
+import com.example.gossipapp.data.local.entity.ExamEntity
 import com.example.gossipapp.data.local.entity.TaskEntity
+import com.example.gossipapp.data.local.entity.TimetableEntity
+import com.example.gossipapp.presentation.viewmodel.ActiveTimerState
 import com.example.gossipapp.presentation.viewmodel.CampuslyUiState
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
+
+sealed class TopPriorityItem(
+    val typeName: String,
+    val title: String,
+    val subtitle: String,
+    val targetMillis: Long,
+    val badgeLabel: String
+) {
+    class HighTask(task: TaskEntity, now: Long) : TopPriorityItem(
+        typeName = "Task",
+        title = task.title,
+        subtitle = "${task.subject} • ${task.description}",
+        targetMillis = getTaskDeadlineMillis(task),
+        badgeLabel = "Task · Due in ${formatRemainingTimeLabel(getTaskDeadlineMillis(task), now)}"
+    )
+
+    class HighAssignment(assignment: AssignmentEntity, deadline: Long, now: Long) : TopPriorityItem(
+        typeName = "Assignment",
+        title = assignment.title,
+        subtitle = assignment.courseName,
+        targetMillis = deadline,
+        badgeLabel = "Assignment · Due in ${formatRemainingTimeLabel(deadline, now)}"
+    )
+
+    class UpcomingExam(exam: ExamEntity, examStart: Long, now: Long) : TopPriorityItem(
+        typeName = "Exam",
+        title = exam.courseName,
+        subtitle = "Venue: ${exam.venue} • ${exam.topics}",
+        targetMillis = examStart,
+        badgeLabel = "Exam · Starts in ${formatRemainingTimeLabel(examStart, now)}"
+    )
+
+    class NextClass(entry: TimetableEntity, classStart: Long, now: Long) : TopPriorityItem(
+        typeName = "Class",
+        title = "${entry.courseCode} - ${entry.courseName}",
+        subtitle = "Room: ${entry.room} • Instructor: ${entry.instructor}",
+        targetMillis = classStart,
+        badgeLabel = "Class · Starts in ${formatRemainingTimeLabel(classStart, now)}"
+    )
+}
+
+fun getTaskDeadlineMillis(task: TaskEntity): Long {
+    if (task.deadlineMillis > 0) return task.deadlineMillis
+    return System.currentTimeMillis() + 86400000L
+}
+
+fun getAssignmentDeadlineMillis(dueDateMillis: Long, timeString: String): Long {
+    val cal = Calendar.getInstance().apply { timeInMillis = dueDateMillis }
+    val timeParts = timeString.split(":")
+    if (timeParts.size >= 2) {
+        val h = timeParts[0].trim().toIntOrNull() ?: 23
+        val m = timeParts[1].trim().toIntOrNull() ?: 59
+        cal.set(Calendar.HOUR_OF_DAY, h)
+        cal.set(Calendar.MINUTE, m)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+    }
+    return cal.timeInMillis
+}
+
+fun getExamStartMillis(examDateMillis: Long, timeString: String): Long {
+    val cal = Calendar.getInstance().apply { timeInMillis = examDateMillis }
+    val timeLower = timeString.lowercase().trim()
+    val isPm = timeLower.contains("pm")
+    val isAm = timeLower.contains("am")
+    val cleanTime = timeLower.replace("am", "").replace("pm", "").trim()
+    val timeParts = cleanTime.split(":")
+    if (timeParts.size >= 2) {
+        var h = timeParts[0].trim().toIntOrNull() ?: 9
+        val m = timeParts[1].trim().toIntOrNull() ?: 0
+        if (isPm && h < 12) h += 12
+        if (isAm && h == 12) h = 0
+        cal.set(Calendar.HOUR_OF_DAY, h)
+        cal.set(Calendar.MINUTE, m)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+    }
+    return cal.timeInMillis
+}
+
+fun getNextClassOccurrenceMillis(dayOfWeek: Int, startTimeStr: String, nowMillis: Long): Long {
+    val cal = Calendar.getInstance().apply { timeInMillis = nowMillis }
+    val currentDayOfWeek = when (cal.get(Calendar.DAY_OF_WEEK)) {
+        Calendar.MONDAY -> 1
+        Calendar.TUESDAY -> 2
+        Calendar.WEDNESDAY -> 3
+        Calendar.THURSDAY -> 4
+        Calendar.FRIDAY -> 5
+        Calendar.SATURDAY -> 6
+        Calendar.SUNDAY -> 7
+        else -> 1
+    }
+
+    val timeParts = startTimeStr.split(":")
+    val h = timeParts.getOrNull(0)?.trim()?.toIntOrNull() ?: 9
+    val m = timeParts.getOrNull(1)?.trim()?.toIntOrNull() ?: 0
+
+    cal.set(Calendar.HOUR_OF_DAY, h)
+    cal.set(Calendar.MINUTE, m)
+    cal.set(Calendar.SECOND, 0)
+    cal.set(Calendar.MILLISECOND, 0)
+
+    var daysDiff = dayOfWeek - currentDayOfWeek
+    if (daysDiff < 0 || (daysDiff == 0 && cal.timeInMillis <= nowMillis)) {
+        daysDiff += 7
+    }
+
+    cal.add(Calendar.DAY_OF_YEAR, daysDiff)
+    return cal.timeInMillis
+}
+
+fun formatRemainingTimeLabel(targetMillis: Long, nowMillis: Long): String {
+    val diffMs = targetMillis - nowMillis
+    if (diffMs <= 0) return "Expired"
+    val diffSec = diffMs / 1000
+    val diffMins = diffSec / 60
+    val diffHours = diffMins / 60
+    val diffDays = diffHours / 24
+
+    return when {
+        diffDays > 0 -> {
+            val remHours = diffHours % 24
+            if (remHours > 0) "${diffDays}d ${remHours}h" else "${diffDays}d"
+        }
+        diffHours > 0 -> {
+            val remMins = diffMins % 60
+            if (remMins > 0) "${diffHours}h ${remMins}m" else "${diffHours}h"
+        }
+        diffMins > 0 -> "${diffMins}m"
+        else -> "< 1m"
+    }
+}
 
 @Composable
 fun HomeScreen(
     uiState: CampuslyUiState,
+    timerState: ActiveTimerState = ActiveTimerState(),
     onOpenAddAssignment: () -> Unit,
     onOpenAddNote: () -> Unit,
     onOpenAddExam: () -> Unit,
@@ -46,15 +183,71 @@ fun HomeScreen(
     val userName = uiState.user?.fullName ?: "Student"
     val todayDateString = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault()).format(Date())
 
-    // Get today's classes
-    val todayClasses = uiState.timetable.filter { it.dayOfWeek == 2 }
-    val nextClass = todayClasses.firstOrNull()
+    // Periodic time ticker for live countdowns & auto-expiring cards
+    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(10000L) // Refresh every 10 seconds
+            nowMillis = System.currentTimeMillis()
+        }
+    }
 
-    // Next Exam
-    val nextExam = uiState.exams.minByOrNull { it.examDateMillis }
+    // Dynamic Top Priority Item Selection
+    val priorityItems = remember(uiState.tasks, uiState.assignments, uiState.exams, uiState.timetable, nowMillis) {
+        val list = mutableListOf<TopPriorityItem>()
+
+        uiState.tasks.filter { !it.isCompleted && it.priority == "High" && getTaskDeadlineMillis(it) > nowMillis }.forEach { task ->
+            list.add(TopPriorityItem.HighTask(task, nowMillis))
+        }
+
+        uiState.assignments.filter { it.status != "Completed" && it.status != "Submitted" && it.priority == "High" }.forEach { assignment ->
+            val dl = getAssignmentDeadlineMillis(assignment.dueDateMillis, assignment.dueTimeString)
+            if (dl > nowMillis) {
+                list.add(TopPriorityItem.HighAssignment(assignment, dl, nowMillis))
+            }
+        }
+
+        uiState.exams.forEach { exam ->
+            val start = getExamStartMillis(exam.examDateMillis, exam.timeString)
+            if (start > nowMillis) {
+                list.add(TopPriorityItem.UpcomingExam(exam, start, nowMillis))
+            }
+        }
+
+        uiState.timetable.forEach { tt ->
+            val nextStart = getNextClassOccurrenceMillis(tt.dayOfWeek, tt.startTime, nowMillis)
+            if (nextStart > nowMillis) {
+                list.add(TopPriorityItem.NextClass(tt, nextStart, nowMillis))
+            }
+        }
+
+        list.sortBy { it.targetMillis }
+        list
+    }
+
+    val topPriority = priorityItems.firstOrNull()
+
+    // Dynamic Active Upcoming Assignments (filtered & sorted by deadline)
+    val activeUpcomingAssignments = remember(uiState.assignments, nowMillis) {
+        uiState.assignments
+            .filter { assignment ->
+                val dl = getAssignmentDeadlineMillis(assignment.dueDateMillis, assignment.dueTimeString)
+                assignment.status != "Completed" && assignment.status != "Submitted" && dl > nowMillis
+            }
+            .sortedBy { getAssignmentDeadlineMillis(it.dueDateMillis, it.dueTimeString) }
+    }
+
+    // Dynamic Next Exam
+    val nextExam = remember(uiState.exams, nowMillis) {
+        uiState.exams
+            .filter { getExamStartMillis(it.examDateMillis, it.timeString) > nowMillis }
+            .minByOrNull { getExamStartMillis(it.examDateMillis, it.timeString) }
+    }
 
     // Saved Smart Study Plan Tasks
-    val savedSmartPlanTasks = uiState.tasks.filter { !it.isCompleted }
+    val savedSmartPlanTasks = remember(uiState.tasks, nowMillis) {
+        uiState.tasks.filter { !it.isCompleted && getTaskDeadlineMillis(it) > nowMillis }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -64,7 +257,7 @@ fun HomeScreen(
         contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // Dynamic Personalized Greeting & Header
+        // Greeting & Header
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -101,7 +294,65 @@ fun HomeScreen(
             }
         }
 
-        // NEXT CLASS HERO CARD
+        // LIVE RUNNING STUDY TIMER CARD (IF RUNNING)
+        if (timerState.isRunning) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenStudyTimer() },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiary,
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "ACTIVE STUDY TIMER ⏱️",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "${timerState.courseName} • ${timerState.topic}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+
+                        val mins = timerState.remainingSeconds / 60
+                        val secs = timerState.remainingSeconds % 60
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                text = String.format(Locale.getDefault(), "%02d:%02d", mins, secs),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // LIVE TOP PRIORITY CARD (REPLACES HARDCODED NEXT CLASS)
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -123,7 +374,7 @@ fun HomeScreen(
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
-                                text = stringResource(R.string.next_class),
+                                text = "TOP PRIORITY ⚡",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSecondary,
@@ -131,13 +382,13 @@ fun HomeScreen(
                             )
                         }
 
-                        if (nextClass != null) {
+                        if (topPriority != null) {
                             Surface(
                                 color = MaterialTheme.colorScheme.tertiary,
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
-                                    text = "Starts in 42 min",
+                                    text = topPriority.badgeLabel,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onTertiary,
@@ -149,63 +400,32 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    if (nextClass != null) {
+                    if (topPriority != null) {
                         Text(
-                            text = nextClass.courseName,
+                            text = topPriority.title,
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimary
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Schedule,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${nextClass.startTime} – ${nextClass.endTime}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                            }
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Room,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = nextClass.room,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         Text(
-                            text = "Instructor: ${nextClass.instructor}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                            text = topPriority.subtitle,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
                         )
                     } else {
                         Text(
-                            text = stringResource(R.string.no_more_classes),
-                            style = MaterialTheme.typography.headlineSmall,
+                            text = "No upcoming priority items.",
+                            style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "You're all caught up! Add a task or class schedule to get started.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
                         )
                     }
                 }
@@ -292,7 +512,7 @@ fun HomeScreen(
 
                     if (savedSmartPlanTasks.isEmpty()) {
                         Text(
-                            text = "No study tasks scheduled for today. Tap 'Suggest Plan 🤖' or '+ Task' above to build your study schedule!",
+                            text = "No study tasks scheduled. Tap 'Suggest Plan 🤖' or '+ Task' above to build your study schedule!",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -348,7 +568,7 @@ fun HomeScreen(
             }
         }
 
-        // UPCOMING DEADLINES & ASSIGNMENTS
+        // UPCOMING DEADLINES & ASSIGNMENTS (DYNAMIC)
         item {
             Column {
                 Text(
@@ -359,22 +579,27 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                if (uiState.assignments.isEmpty()) {
+                if (activeUpcomingAssignments.isEmpty()) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Text(
-                            text = stringResource(R.string.no_assignments),
+                            text = "No active upcoming assignments.",
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(16.dp)
                         )
                     }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        uiState.assignments.forEach { assignment ->
+                        activeUpcomingAssignments.forEach { assignment ->
+                            val dl = getAssignmentDeadlineMillis(assignment.dueDateMillis, assignment.dueTimeString)
+                            val isDueSoon = (dl - nowMillis) <= 24 * 3600 * 1000L
+                            val remainingText = formatRemainingTimeLabel(dl, nowMillis)
+
                             AssignmentCard(
                                 assignment = assignment,
+                                customBadge = if (isDueSoon) "Due Soon · $remainingText remaining" else "Due in $remainingText",
                                 onToggleCompleted = { onToggleAssignment(assignment) },
                                 onEdit = { onEditAssignment(assignment) },
                                 onDelete = { onDeleteAssignment(assignment) }
@@ -385,8 +610,11 @@ fun HomeScreen(
             }
         }
 
-        // NEXT EXAM COUNTDOWN
+        // DYNAMIC EXAM COUNTDOWN
         if (nextExam != null) {
+            val examStart = getExamStartMillis(nextExam.examDateMillis, nextExam.timeString)
+            val examRemainingText = formatRemainingTimeLabel(examStart, nowMillis)
+
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -400,7 +628,7 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Surface(
                                 color = MaterialTheme.colorScheme.tertiary,
                                 shape = RoundedCornerShape(6.dp)
@@ -420,7 +648,7 @@ fun HomeScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Venue: ${nextExam.venue}",
+                                text = "Venue: ${nextExam.venue} • ${nextExam.timeString}",
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -431,16 +659,16 @@ fun HomeScreen(
                         ) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                             ) {
                                 Text(
-                                    text = "12",
-                                    style = MaterialTheme.typography.headlineMedium,
+                                    text = examRemainingText,
+                                    style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimary
                                 )
                                 Text(
-                                    text = "Days Left",
+                                    text = "Left",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onPrimary
                                 )
@@ -487,6 +715,7 @@ fun QuickActionChip(
 @Composable
 fun AssignmentCard(
     assignment: AssignmentEntity,
+    customBadge: String? = null,
     onToggleCompleted: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null
@@ -509,7 +738,7 @@ fun AssignmentCard(
                     shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
-                        text = "Due Soon • ${assignment.dueTimeString}",
+                        text = customBadge ?: "Due Soon • ${assignment.dueTimeString}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = if (assignment.priority == "High") MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,

@@ -44,7 +44,7 @@ class UserPreferences(private val context: Context) {
     }
 
     val currentUserEmail: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[CURRENT_USER_EMAIL] ?: "student@campusly.app"
+        prefs[CURRENT_USER_EMAIL] ?: ""
     }
 
     suspend fun setCurrentUserEmail(email: String) {
@@ -64,7 +64,7 @@ class UserPreferences(private val context: Context) {
     }
 
     val selectedUniversity: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[SELECTED_UNIVERSITY] ?: "University of Science & Technology"
+        prefs[SELECTED_UNIVERSITY] ?: "United States International University Africa"
     }
 
     suspend fun setSelectedUniversity(university: String) {

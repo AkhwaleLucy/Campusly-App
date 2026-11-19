@@ -16,94 +16,89 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.gossipapp.data.local.entity.CourseEntity
-import kotlinx.coroutines.delay
+import com.example.gossipapp.presentation.viewmodel.ActiveTimerState
 import java.util.Locale
 
 @Composable
 fun StudyTimerDialog(
     courses: List<CourseEntity>,
+    timerState: ActiveTimerState,
     onDismiss: () -> Unit,
+    onStartTimer: (courseName: String, topic: String, durationMinutes: Int) -> Unit,
+    onPauseTimer: () -> Unit,
+    onResumeTimer: () -> Unit,
+    onCancelTimer: () -> Unit,
     onRecordSession: (courseName: String, topic: String, durationMinutes: Int) -> Unit
 ) {
-    var selectedCourse by remember { mutableStateOf(courses.firstOrNull()?.name ?: "Data Structures & Algorithms") }
-    var topic by remember { mutableStateOf("Linked Lists Practice") }
-    var totalSeconds by remember { mutableIntStateOf(25 * 60) } // 25 min Pomodoro default
-    var secondsLeft by remember { mutableIntStateOf(totalSeconds) }
-    var isRunning by remember { mutableStateOf(false) }
+    var selectedCourse by remember { mutableStateOf(if (timerState.courseName.isNotBlank()) timerState.courseName else (courses.firstOrNull()?.name ?: "General Study")) }
+    var topic by remember { mutableStateOf(if (timerState.topic.isNotBlank()) timerState.topic else "Active Recall Session") }
+    var durationMinutes by remember { mutableIntStateOf(25) }
 
-    LaunchedEffect(isRunning) {
-        while (isRunning && secondsLeft > 0) {
-            delay(1000L)
-            secondsLeft -= 1
-        }
-        if (secondsLeft == 0 && isRunning) {
-            isRunning = false
-        }
-    }
-
-    val minutes = secondsLeft / 60
-    val seconds = secondsLeft % 60
+    val remainingSecs = if (timerState.isRunning) timerState.remainingSeconds else (durationMinutes * 60)
+    val minutes = remainingSecs / 60
+    val seconds = remainingSecs % 60
     val timeFormatted = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Campusly Study Timer", fontWeight = FontWeight.Bold) },
+        title = { Text("Campusly Focus Timer ⏱️", fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                OutlinedTextField(
-                    value = selectedCourse,
-                    onValueChange = { selectedCourse = it },
-                    label = { Text("Course") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = topic,
-                    onValueChange = { topic = it },
-                    label = { Text("Topic") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    FilterChip(
-                        selected = totalSeconds == 25 * 60,
-                        onClick = {
-                            totalSeconds = 25 * 60
-                            secondsLeft = totalSeconds
-                            isRunning = false
-                        },
-                        label = { Text("25 min Pomodoro") }
+                if (!timerState.isRunning) {
+                    OutlinedTextField(
+                        value = selectedCourse,
+                        onValueChange = { selectedCourse = it },
+                        label = { Text("Course / Subject") },
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    FilterChip(
-                        selected = totalSeconds == 50 * 60,
-                        onClick = {
-                            totalSeconds = 50 * 60
-                            secondsLeft = totalSeconds
-                            isRunning = false
-                        },
-                        label = { Text("50 min Session") }
+
+                    OutlinedTextField(
+                        value = topic,
+                        onValueChange = { topic = it },
+                        label = { Text("Topic Summary") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        FilterChip(
+                            selected = durationMinutes == 25,
+                            onClick = { durationMinutes = 25 },
+                            label = { Text("25m Pomodoro") }
+                        )
+                        FilterChip(
+                            selected = durationMinutes == 50,
+                            onClick = { durationMinutes = 50 },
+                            label = { Text("50m Deep Focus") }
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "Course: ${timerState.courseName} • ${timerState.topic}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
 
                 Box(
                     modifier = Modifier
-                        .size(160.dp)
+                        .size(150.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(if (timerState.isRunning && !timerState.isPaused) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = timeFormatted,
                         style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -112,54 +107,65 @@ fun StudyTimerDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
-                        onClick = { isRunning = !isRunning },
+                        onClick = {
+                            if (!timerState.isRunning) {
+                                onStartTimer(selectedCourse, topic, durationMinutes)
+                            } else if (timerState.isPaused) {
+                                onResumeTimer()
+                            } else {
+                                onPauseTimer()
+                            }
+                        },
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(
-                            imageVector = if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            imageVector = if (timerState.isRunning && !timerState.isPaused) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
 
-                    IconButton(
-                        onClick = {
-                            isRunning = false
-                            secondsLeft = totalSeconds
-                        },
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.secondaryContainer)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Stop,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                    if (timerState.isRunning) {
+                        IconButton(
+                            onClick = {
+                                onCancelTimer()
+                            },
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.errorContainer)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Stop,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
                     }
                 }
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val completedMinutes = (totalSeconds - secondsLeft) / 60
-                    if (completedMinutes > 0) {
-                        onRecordSession(selectedCourse, topic, completedMinutes)
-                    }
-                    onDismiss()
-                },
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("Finish Session & Record")
+            if (timerState.isRunning) {
+                Button(
+                    onClick = {
+                        val doneSecs = timerState.totalSeconds - timerState.remainingSeconds
+                        val mins = maxOf(1, doneSecs / 60)
+                        onRecordSession(timerState.courseName, timerState.topic, mins)
+                        onCancelTimer()
+                        onDismiss()
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Complete & Save Session")
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text("Close Window") }
         }
     )
 }

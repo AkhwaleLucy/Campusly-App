@@ -100,6 +100,12 @@ interface CampuslyDao {
     @Delete
     suspend fun deleteTask(task: TaskEntity)
 
+    @Query("DELETE FROM tasks WHERE id = :id AND userEmail = :userEmail")
+    suspend fun deleteTaskScoped(id: Long, userEmail: String): Int
+
+    @Query("UPDATE tasks SET title = :title, subject = :subject, description = :description, priority = :priority, isCompleted = :isCompleted WHERE id = :id AND userEmail = :userEmail")
+    suspend fun updateTaskScoped(id: Long, userEmail: String, title: String, subject: String, description: String, priority: String, isCompleted: Boolean): Int
+
     // Notes
     @Query("SELECT * FROM notes WHERE userEmail = :userEmail ORDER BY isPinned DESC, id DESC")
     fun getNotesForUser(userEmail: String): Flow<List<NoteEntity>>

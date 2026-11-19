@@ -28,13 +28,13 @@ enum class AuthMode {
 fun AuthScreen(
     onSignUp: (fullName: String, email: String, password: String, university: String, courseProgram: String, yearOfStudy: String, onError: (String) -> Unit) -> Unit,
     onSignIn: (email: String, password: String, onError: (String) -> Unit) -> Unit,
-    onResetPassword: (email: String, newPassword: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
+    onResetPassword: (email: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) -> Unit
 ) {
     var mode by remember { mutableStateOf(AuthMode.SIGN_IN) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var fullName by remember { mutableStateOf("") }
-    var university by remember { mutableStateOf("University of Science & Technology") }
+    var university by remember { mutableStateOf("United States International University Africa") }
     var courseProgram by remember { mutableStateOf("Computer Science") }
     var yearOfStudy by remember { mutableStateOf("Year 3") }
 
@@ -66,7 +66,7 @@ fun AuthScreen(
                 text = when (mode) {
                     AuthMode.SIGN_UP -> stringResource(R.string.create_account)
                     AuthMode.SIGN_IN -> stringResource(R.string.sign_in)
-                    AuthMode.RESET_PASSWORD -> "Reset Password"
+                    AuthMode.RESET_PASSWORD -> "Password Recovery"
                 },
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold
@@ -74,9 +74,9 @@ fun AuthScreen(
 
             Text(
                 text = when (mode) {
-                    AuthMode.SIGN_UP -> stringResource(R.string.join_campusly)
-                    AuthMode.SIGN_IN -> stringResource(R.string.sign_in_dashboard)
-                    AuthMode.RESET_PASSWORD -> "Enter your email and new password to reset your credentials."
+                    AuthMode.SIGN_UP -> "Join Campusly with your institutional .ac.ke email (e.g. @usiu.ac.ke)"
+                    AuthMode.SIGN_IN -> "Sign in with your registered .ac.ke student credentials"
+                    AuthMode.RESET_PASSWORD -> "Enter your registered .ac.ke institutional email. We will send a verified password recovery link to your inbox."
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -119,7 +119,7 @@ fun AuthScreen(
                                     },
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text("Reset Password")
+                                    Text("Password Recovery")
                                 }
                             }
                         }
@@ -183,23 +183,25 @@ fun AuthScreen(
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it; errorMessage = null; successMessage = null },
-                label = { Text(stringResource(R.string.student_email)) },
+                label = { Text("Institutional Email (.ac.ke)") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            if (mode != AuthMode.RESET_PASSWORD) {
+                Spacer(modifier = Modifier.height(10.dp))
 
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it; errorMessage = null; successMessage = null },
-                label = { Text(if (mode == AuthMode.RESET_PASSWORD) "New Password" else stringResource(R.string.password)) },
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it; errorMessage = null; successMessage = null },
+                    label = { Text(stringResource(R.string.password)) },
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -227,11 +229,11 @@ fun AuthScreen(
                             }
                         }
                         AuthMode.RESET_PASSWORD -> {
-                            if (email.isBlank() || password.isBlank()) {
-                                errorMessage = "Please enter your email and new password."
+                            if (email.isBlank()) {
+                                errorMessage = "Please enter your registered student email address."
                             } else {
-                                onResetPassword(email, password, {
-                                    successMessage = "Password updated successfully! Please Sign In."
+                                onResetPassword(email, { info ->
+                                    successMessage = info
                                     mode = AuthMode.SIGN_IN
                                 }, { err ->
                                     errorMessage = err
@@ -249,7 +251,7 @@ fun AuthScreen(
                     text = when (mode) {
                         AuthMode.SIGN_UP -> stringResource(R.string.create_account)
                         AuthMode.SIGN_IN -> stringResource(R.string.sign_in)
-                        AuthMode.RESET_PASSWORD -> "Update Password"
+                        AuthMode.RESET_PASSWORD -> "Send Recovery Link 📧"
                     },
                     style = MaterialTheme.typography.titleMedium
                 )

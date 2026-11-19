@@ -369,33 +369,42 @@ fun EditExamDialog(
 @Composable
 fun AddTaskDialog(
     onDismiss: () -> Unit,
-    onAddTask: (TaskEntity) -> Unit
+    onAddTask: (task: TaskEntity, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var subject by remember { mutableStateOf("General") }
     var priority by remember { mutableStateOf("Medium") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Personal Study Task") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
                 OutlinedTextField(
                     value = title,
-                    onValueChange = { title = it },
+                    onValueChange = { title = it; errorMessage = null },
                     label = { Text("Task Title") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = subject,
-                    onValueChange = { subject = it },
+                    onValueChange = { subject = it; errorMessage = null },
                     label = { Text("Subject / Course") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = description,
-                    onValueChange = { description = it },
+                    onValueChange = { description = it; errorMessage = null },
                     label = { Text("Description") },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -424,14 +433,17 @@ fun AddTaskDialog(
                     if (title.isNotBlank()) {
                         onAddTask(
                             TaskEntity(
-                                title = title,
-                                subject = subject,
-                                description = description,
+                                title = title.trim(),
+                                subject = subject.trim(),
+                                description = description.trim(),
                                 deadlineMillis = System.currentTimeMillis() + 86400000L,
                                 priority = priority
-                            )
+                            ),
+                            { onDismiss() },
+                            { err -> errorMessage = err }
                         )
-                        onDismiss()
+                    } else {
+                        errorMessage = "Please enter a task title."
                     }
                 },
                 shape = RoundedCornerShape(8.dp)
@@ -449,37 +461,86 @@ fun AddTaskDialog(
 fun EditTaskDialog(
     task: TaskEntity,
     onDismiss: () -> Unit,
-    onSaveTask: (TaskEntity) -> Unit,
+    onSaveTask: (task: TaskEntity, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
     onDeleteTask: (TaskEntity) -> Unit
 ) {
     var title by remember { mutableStateOf(task.title) }
     var description by remember { mutableStateOf(task.description) }
     var subject by remember { mutableStateOf(task.subject) }
     var priority by remember { mutableStateOf(task.priority) }
+    var isCompleted by remember { mutableStateOf(task.isCompleted) }
+    var showConfirmDelete by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    if (showConfirmDelete) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDelete = false },
+            title = { Text("Delete Task") },
+            text = { Text("Are you sure you want to delete task '${task.title}'?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteTask(task)
+                        showConfirmDelete = false
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDelete = false }) { Text("Cancel") }
+            }
+        )
+        return
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Study Task") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
                 OutlinedTextField(
                     value = title,
-                    onValueChange = { title = it },
+                    onValueChange = { title = it; errorMessage = null },
                     label = { Text("Task Title") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = subject,
-                    onValueChange = { subject = it },
+                    onValueChange = { subject = it; errorMessage = null },
                     label = { Text("Subject") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = description,
-                    onValueChange = { description = it },
+                    onValueChange = { description = it; errorMessage = null },
                     label = { Text("Description") },
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Text("Status:")
+                    FilterChip(
+                        selected = isCompleted,
+                        onClick = { isCompleted = !isCompleted },
+                        label = { Text(if (isCompleted) "Completed ✓" else "Open") }
+                    )
+                }
+
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected = priority == "High",
@@ -505,13 +566,17 @@ fun EditTaskDialog(
                     if (title.isNotBlank()) {
                         onSaveTask(
                             task.copy(
-                                title = title,
-                                subject = subject,
-                                description = description,
-                                priority = priority
-                            )
+                                title = title.trim(),
+                                subject = subject.trim(),
+                                description = description.trim(),
+                                priority = priority,
+                                isCompleted = isCompleted
+                            ),
+                            { onDismiss() },
+                            { err -> errorMessage = err }
                         )
-                        onDismiss()
+                    } else {
+                        errorMessage = "Task title cannot be blank."
                     }
                 },
                 shape = RoundedCornerShape(8.dp)
@@ -522,10 +587,7 @@ fun EditTaskDialog(
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(
-                    onClick = {
-                        onDeleteTask(task)
-                        onDismiss()
-                    },
+                    onClick = { showConfirmDelete = true },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("Delete")

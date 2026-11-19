@@ -80,7 +80,7 @@ fun ProfileScreen(
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = if (isAnon) "Anonymous Student 🥷" else (user?.fullName ?: "Lucy Vance"),
+                                text = if (isAnon) "Anonymous Student 🥷" else (user?.fullName ?: "Student"),
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold
                             )

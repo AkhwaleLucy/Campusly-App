@@ -34,7 +34,7 @@ data class CourseEntity(
 @Entity(tableName = "timetable")
 data class TimetableEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val userEmail: String = "student@campusly.app",
+    val userEmail: String = "",
     val courseId: Long = 0,
     val courseCode: String,
     val courseName: String,
@@ -49,7 +49,7 @@ data class TimetableEntity(
 @Entity(tableName = "assignments")
 data class AssignmentEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val userEmail: String = "student@campusly.app",
+    val userEmail: String = "",
     val courseId: Long = 0,
     val courseName: String,
     val title: String,
@@ -66,7 +66,7 @@ data class AssignmentEntity(
 @Entity(tableName = "exams")
 data class ExamEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val userEmail: String = "student@campusly.app",
+    val userEmail: String = "",
     val courseId: Long = 0,
     val courseName: String,
     val examDateMillis: Long,
@@ -80,7 +80,7 @@ data class ExamEntity(
 @Entity(tableName = "tasks")
 data class TaskEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val userEmail: String = "student@campusly.app",
+    val userEmail: String = "",
     val subject: String = "General",
     val title: String,
     val description: String = "",
@@ -97,7 +97,7 @@ data class TaskEntity(
 @Entity(tableName = "notes")
 data class NoteEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val userEmail: String = "student@campusly.app",
+    val userEmail: String = "",
     val courseId: Long = 0,
     val courseName: String = "",
     val title: String,
@@ -112,7 +112,7 @@ data class NoteEntity(
 data class StudySessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val sessionId: String = UUID.randomUUID().toString(),
-    val userEmail: String = "student@campusly.app",
+    val userEmail: String = "",
     val courseId: Long = 0,
     val courseName: String,
     val topic: String,
@@ -124,7 +124,7 @@ data class StudySessionEntity(
 @Entity(tableName = "flashcards")
 data class FlashcardEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val userEmail: String = "student@campusly.app",
+    val userEmail: String = "",
     val deckName: String,
     val courseName: String,
     val front: String,
@@ -135,7 +135,7 @@ data class FlashcardEntity(
 @Entity(tableName = "gpa_records")
 data class GpaRecordEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val userEmail: String = "student@campusly.app",
+    val userEmail: String = "",
     val semesterName: String,
     val gpaScore: Double,
     val creditUnits: Int
@@ -144,7 +144,7 @@ data class GpaRecordEntity(
 @Entity(tableName = "events")
 data class EventEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val creatorEmail: String = "student@campusly.app",
+    val creatorEmail: String = "",
     val title: String,
     val organizer: String,
     val dateString: String,
@@ -158,7 +158,7 @@ data class EventEntity(
 @Entity(tableName = "opportunities")
 data class OpportunityEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val creatorEmail: String = "student@campusly.app",
+    val creatorEmail: String = "",
     val title: String,
     val organization: String,
     val deadlineString: String,
@@ -171,7 +171,7 @@ data class OpportunityEntity(
 @Entity(tableName = "study_groups")
 data class StudyGroupEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val creatorEmail: String = "student@campusly.app",
+    val creatorEmail: String = "",
     val name: String,
     val courseName: String,
     val memberCount: Int,
@@ -183,7 +183,7 @@ data class StudyGroupEntity(
 @Entity(tableName = "marketplace_listings")
 data class MarketplaceListingEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val sellerEmail: String = "student@campusly.app",
+    val sellerEmail: String = "",
     val sellerName: String,
     val title: String,
     val description: String,
@@ -219,7 +219,7 @@ data class PrivateMessageEntity(
 @Entity(tableName = "budgets")
 data class BudgetEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val userEmail: String = "student@campusly.app",
+    val userEmail: String = "",
     val category: String,
     val targetAmount: Double,
     val spentAmount: Double,
@@ -229,7 +229,7 @@ data class BudgetEntity(
 @Entity(tableName = "savings_goals")
 data class SavingsGoalEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val userEmail: String = "student@campusly.app",
+    val userEmail: String = "",
     val title: String,
     val targetKes: Double,
     val savedKes: Double
@@ -238,7 +238,7 @@ data class SavingsGoalEntity(
 @Entity(tableName = "attendance_records")
 data class AttendanceRecordEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val userEmail: String = "student@campusly.app",
+    val userEmail: String = "",
     val courseId: Long = 0,
     val courseName: String,
     val attendedSessions: Int,

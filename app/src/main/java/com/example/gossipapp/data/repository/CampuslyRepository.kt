@@ -71,6 +71,9 @@ class CampuslyRepository(
     suspend fun addTask(task: TaskEntity): Long = dao.insertTask(task)
     suspend fun updateTask(task: TaskEntity) = dao.updateTask(task)
     suspend fun deleteTask(task: TaskEntity) = dao.deleteTask(task)
+    suspend fun deleteTaskScoped(id: Long, userEmail: String): Int = dao.deleteTaskScoped(id, userEmail)
+    suspend fun updateTaskScoped(id: Long, userEmail: String, title: String, subject: String, description: String, priority: String, isCompleted: Boolean): Int =
+        dao.updateTaskScoped(id, userEmail, title, subject, description, priority, isCompleted)
 
     // Notes
     val allNotes: Flow<List<NoteEntity>> = dao.getAllNotes()
